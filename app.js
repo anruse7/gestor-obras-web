@@ -247,16 +247,11 @@ function avisarNube(){
   var b = $id('setupBanner');
   if(!b || b._avisadoNube) return;
   b._avisadoNube = true;
-  var err = STORAGE.cloudError();
-  var esRls = /42501|RLS|policy/i.test(err);
-  var detalle = esRls ? '<br>La nube rechazó la escritura por permisos (RLS).' : '<br>Detalle: <b>'+esc(err)+'</b>';
-  if(esRls){
-    var sql = 'create policy "acceso_abierto" on public.kv for all using (true) with check (true);';
-    detalle += ' Abre <b>'+esc(window.CONFIG.supabaseUrl)+'</b> → SQL Editor → pega:<pre>'+esc(sql)+'</pre>';
-  }
-  b.innerHTML = '⚠ La nube no guardó algunos datos (se reintentó). Quedan guardados en este dispositivo.'+detalle+'<button class="boton pequeno" onclick="location.reload()">Recargar</button>';
+  b.innerHTML = '⚠ La nube no confirmó el guardado (se reintentó). Tus datos están seguros en este dispositivo; se está <b>recargando para sincronizar</b>…';
   b.classList.remove('hidden');
   actualizarIndicador('setup');
+  // Al recargar la app vuelve a conectar con la nube y sincroniza (los datos ya están en local).
+  setTimeout(function(){ location.reload(); }, 2500);
 }
 async function guardarLista(){ await STORAGE.set('index', app.obras); avisarNube(); }
 async function guardarObra(){
