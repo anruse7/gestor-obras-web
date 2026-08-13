@@ -134,6 +134,10 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
 .li-fact input{width:70px;}
 .resumen-fact{background:#f8fafc;border-radius:8px;padding:10px;margin:10px 0;font-size:13px;}
 .resumen-fact .imp{font-size:16px;font-weight:700;color:var(--azul);}
+.resumen-valoracion{background:#eef4ff;border:1px solid #c7d7f0;border-radius:10px;padding:10px 12px;margin:0 0 10px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.resumen-valoracion .imp{font-size:18px;font-weight:700;color:var(--azul);white-space:nowrap;}
+.obra-val{font-size:13px;margin-top:2px;color:var(--sub);}
+.obra-val b{color:var(--azul);}
 
 /* ---------- historial ---------- */
 .his-item{border-left:3px solid var(--azul2);padding:6px 10px;margin-bottom:8px;background:#f8fafc;border-radius:0 8px 8px 0;font-size:13px;}
@@ -246,6 +250,7 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
 
   <!-- PARTIDAS -->
   <div id="tab-partidas">
+    <div class="resumen-valoracion" id="resumenValoracion"></div>
     <div class="espacio buscador-ok">
       <input type="text" id="buscarPartida" placeholder="🔍 Buscar partida o material…">
       <div id="resultadosBusqueda" class="resultados hidden"></div>

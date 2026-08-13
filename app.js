@@ -61,6 +61,14 @@ function precioPartida(codigo){
   var aviso = !vp || /tension/i.test(p.f||'');
   return { partida:p, importe:round2(p.p*valor), puntos:p.p||0, valorPunto:valor, aviso:aviso };
 }
+function totalValoracion(o){
+  var tot = 0;
+  (o.replanteo||[]).forEach(function(r){
+    var pr = precioPartida(r.codigo);
+    if(pr && pr.importe) tot += pr.importe * (r.cantidad||0);
+  });
+  return round2(tot);
+}
 function buscarBaremo(t){
   var out=[];
   t = String(t||'').toLowerCase();
@@ -195,7 +203,7 @@ var app = {
 
 /* ---------------- Operaciones de obra ---------------- */
 function indiceResumen(o){
-  return { id:o.id, lcl:o.lcl, direccion:o.direccion, municipio:o.municipio, estado:o.estado, fechaAlta:o.fechaAlta, correo:o.correo };
+  return { id:o.id, lcl:o.lcl, direccion:o.direccion, municipio:o.municipio, estado:o.estado, fechaAlta:o.fechaAlta, correo:o.correo, valoracion:totalValoracion(o) };
 }
 async function guardarLista(){ await STORAGE.set('index', app.obras); }
 async function guardarObra(){
@@ -215,6 +223,14 @@ async function cargarObra(id){
   app.obra.facturacion = app.obra.facturacion||[];
   app.obra.documentos = app.obra.documentos||[];
   app.obra.historial = app.obra.historial||[];
+  var tot = totalValoracion(app.obra);
+  for(var i=0;i<app.obras.length;i++){
+    if(app.obras[i].id===id && app.obras[i].valoracion!==tot){
+      app.obras[i].valoracion = tot;
+      guardarLista();
+      break;
+    }
+  }
   return true;
 }
 async function eliminarObra(id){
@@ -305,6 +321,7 @@ function renderLista(){
       + '<div class="obra-izq">'
       + '<div class="obra-lcl">'+esc(o.lcl||'Sin LCL')+'</div>'
       + '<div class="obra-dir">'+esc(o.direccion||'')+(o.municipio?', '+esc(o.municipio):'')+'</div>'
+      + '<div class="obra-val">Valoración: <b>'+(o.valoracion!=null?fmtEuro(o.valoracion):'—')+'</b></div>'
       + '</div>'
       + '<span class="estado-chip '+claseEstado(o.estado)+'">'+esc(o.estado||'Alta')+'</span>'
       + '<button class="btn-eliminar" data-borrar="'+esc(o.id)+'" title="Eliminar obra">🗑</button>'
@@ -473,6 +490,7 @@ function renderResultados(){
 }
 function renderPartidas(){
   var o = app.obra;
+  $id('resumenValoracion').innerHTML = 'Valoración total: <span class="imp">'+fmtEuro(totalValoracion(o))+'</span>';
   // partidas
   var hp = '';
   o.replanteo.forEach(function(r){
