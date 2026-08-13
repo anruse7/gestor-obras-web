@@ -490,7 +490,9 @@ function renderResultados(){
 }
 function renderPartidas(){
   var o = app.obra;
-  $id('resumenValoracion').innerHTML = 'Valoración total: <span class="imp">'+fmtEuro(totalValoracion(o))+'</span>';
+  var total = totalValoracion(o);
+  $id('resumenValoracion').innerHTML = 'Valoración total: <span class="imp">'+fmtEuro(total)+'</span>';
+  $id('cValoracion').innerHTML = 'Valoración: <b>'+fmtEuro(total)+'</b>';
   // partidas
   var hp = '';
   o.replanteo.forEach(function(r){
@@ -916,39 +918,6 @@ async function compartirZip(){
   toast(motivo);
 }
 
-/* ---------------- Backup ---------------- */
-async function exportarCopia(){
-  var datos = { exportado:new Date().toISOString(), app:'gestor-obras', index:app.obras };
-  var obras = [];
-  for(var i=0;i<app.obras.length;i++){
-    var o = await STORAGE.get('obra:'+app.obras[i].id);
-    if(o) obras.push(o);
-  }
-  var fotos = [];
-  for(var j=0;j<app.obras.length;j++){
-    var f = await STORAGE.get('fotos:'+app.obras[j].id);
-    if(f && f.length) fotos.push({obraId:app.obras[j].id, fotos:f});
-  }
-  datos.obras = obras; datos.fotos = fotos;
-  descargar(new Blob([JSON.stringify(datos)],{type:'application/json'}), 'copia-gestor-obras_'+new Date().toISOString().slice(0,10)+'.json');
-  toast('Copia exportada');
-}
-async function importarCopia(file){
-  try{
-    var txt = await file.text();
-    var datos = JSON.parse(txt);
-    if(!datos.obras) throw new Error('formato');
-    if(!confirm('Se sustituirán las '+app.obras.length+' obras actuales por las '+datos.obras.length+' del archivo. ¿Continuar?')) return;
-    for(var i=0;i<app.obras.length;i++){ await STORAGE.remove('obra:'+app.obras[i].id); await STORAGE.remove('fotos:'+app.obras[i].id); }
-    for(var j=0;j<datos.obras.length;j++){ await STORAGE.set('obra:'+datos.obras[j].id, datos.obras[j]); }
-    (datos.fotos||[]).forEach(function(g){ STORAGE.set('fotos:'+g.obraId, g.fotos||[]); });
-    app.obras = datos.index||[];
-    await guardarLista();
-    toast('Copia importada: '+datos.obras.length+' obras');
-    renderLista();
-  }catch(e){ toast('Archivo de copia no válido'); }
-}
-
 /* ---------------- Inicio ---------------- */
 function actualizarIndicador(b){
   $id('txtSync').textContent = b==='supabase'?'Nube':(b==='idb'?'Local':(b==='setup'?'Config':'-'));
@@ -1099,11 +1068,6 @@ async function iniciar(){
     this.disabled=false; this.textContent='📦 Exportar ZIP';
   });
   $id('btnCompartirZip').addEventListener('click', compartirZip);
-
-  // backup
-  $id('btnExportarCopia').addEventListener('click', exportarCopia);
-  $id('btnImportarCopia').addEventListener('click', function(){ $id('inputImportar').click(); });
-  $id('inputImportar').addEventListener('change', function(){ var f=this.files[0]; if(f) importarCopia(f); this.value=''; });
 
   // instalación PWA
   window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); app.deferredPrompt=e; app.instalable=true; });

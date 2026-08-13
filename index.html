@@ -28,6 +28,8 @@ header .barra{display:flex;align-items:center;gap:8px;}
 header h1{font-size:16px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .btn-volver{background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:6px;padding:5px 10px;font-size:14px;cursor:pointer;}
 .btn-icono{background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:6px;padding:5px 9px;font-size:14px;cursor:pointer;}
+.btn-nueva{background:#fff;color:var(--azul);border:none;border-radius:20px;padding:7px 13px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+.btn-nueva:hover{filter:brightness(.95);}
 #indicadorSync{display:inline-flex;align-items:center;gap:5px;font-size:12px;background:rgba(255,255,255,.15);padding:3px 8px;border-radius:12px;}
 .dot{width:8px;height:8px;border-radius:50%;background:#86efac;display:inline-block;}
 .dot.off{background:#fca5a5;}
@@ -74,6 +76,8 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
 #cabezaObra{padding:12px 14px 6px;}
 #cabezaObra h2{margin:0;font-size:18px;}
 #cabezaObra .sub{font-size:13px;color:var(--sub);}
+#cValoracion{margin-top:8px;font-size:13px;color:var(--sub);background:#eef4ff;border:1px solid #c7d7f0;border-radius:8px;padding:6px 10px;display:inline-flex;align-items:center;gap:6px;}
+#cValoracion b{font-size:16px;font-weight:700;color:var(--azul);}
 .fases{display:flex;gap:6px;padding:8px 12px;overflow-x:auto;}
 .fase-btn{border:1px solid var(--borde);background:#fff;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;white-space:nowrap;}
 .fase-btn.activa{background:var(--azul);color:#fff;border-color:var(--azul);}
@@ -165,7 +169,8 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
     <button class="btn-volver hidden" id="btnVolver">←</button>
     <h1 id="tituloCab">Gestor de Obras MT/BT</h1>
     <span id="indicadorSync" title="Estado de sincronización"><span class="dot" id="dotSync"></span><span id="txtSync">…</span></span>
-    <button class="btn-icono" id="btnNuevaObra" title="Nueva obra">+</button>
+    <button class="btn-icono" id="btnInstalarApp" title="Instalar app">⤓</button>
+    <button class="btn-nueva" id="btnNuevaObra" title="Añadir obra">＋ Añadir</button>
   </div>
 </header>
 
@@ -175,14 +180,8 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
 <div id="vistaLista">
   <div class="espacio">
     <input type="text" id="buscadorObras" placeholder="🔍 Buscar por LCL, dirección, municipio o correo…">
-    <div class="fila" style="margin-top:10px;flex-wrap:wrap">
-      <button class="boton contorno" id="btnExportarCopia">📥 Exportar copia</button>
-      <button class="boton contorno" id="btnImportarCopia">📤 Importar copia</button>
-      <button class="boton contorno" id="btnInstalarApp">📲 Instalar app</button>
-    </div>
   </div>
   <div id="listaObras"></div>
-  <input type="file" id="inputImportar" accept=".json" class="hidden">
 </div>
 
 <!-- ================= VISTA ALTA ================= -->
@@ -238,6 +237,7 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
       <span class="estado-chip" id="cEstado">-</span>
       <span style="font-size:12px;color:var(--sub)" id="cZonas"></span>
     </div>
+    <div id="cValoracion">Valoración: <b>—</b></div>
   </div>
   <div class="fases" id="fasesBar"></div>
   <div id="tabs">
