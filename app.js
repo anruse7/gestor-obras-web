@@ -1009,9 +1009,9 @@ async function iniciar(){
   // visor de diagnóstico: abrir la web con ?diag=1
   if(/[?&]diag=1/.test(location.search)){
     var oDiag=document.createElement('div');
-    oDiag.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#0b0b0b;color:#7CFC00;font:10px/1.5 Consolas;overflow:auto;padding:8px;white-space:pre-wrap;';
+    oDiag.style.cssText='position:fixed;bottom:0;left:0;right:0;max-height:32vh;overflow:auto;z-index:9999;background:rgba(8,8,8,.88);color:#7CFC00;font:10px/1.5 Consolas;padding:6px 8px;white-space:pre-wrap;pointer-events:none;';
     var verDiag=function(){ oDiag.textContent=(window.__DIAG||[]).join('\n'); };
-    verDiag(); setInterval(verDiag, 1500);
+    verDiag(); setInterval(verDiag, 1200);
     document.body.appendChild(oDiag);
   }
 
