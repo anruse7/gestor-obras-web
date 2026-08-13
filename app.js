@@ -6,6 +6,10 @@
 (function(){
 'use strict';
 
+/* ---------------- Registro de diagnóstico (para depurar la nube) ---------------- */
+window.__DIAG = window.__DIAG || [];
+function diag(m){ try{ window.__DIAG.push(new Date().toLocaleTimeString()+' '+m); }catch(e){} }
+
 /* ---------------- Utilidades ---------------- */
 function $id(id){ return document.getElementById(id); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
@@ -140,10 +144,12 @@ var STORAGE = (function(){
     var intentos = 3;
     function intento(n){
       return fetch(url, opts).then(function(r){
+        diag('sb '+method+' '+qs.split('&')[0]+' → HTTP '+r.status);
         if(!r.ok && r.status!==204) return r.text().then(function(t){ throw new Error('Supabase '+r.status+': '+t); });
         if(method==='GET') return r.text().then(function(t){ return t?JSON.parse(t):null; });
         return null;
       }).catch(function(e){
+        diag('sb '+method+' '+(n===intentos?'FALLO definitivo ':'reintento ')+n+' → '+((e&&e.name)||'')+': '+((e&&e.message)||e).slice(0,140));
         if(n < intentos) return new Promise(function(res){ setTimeout(res, 400*n); }).then(function(){ return intento(n+1); });
         throw e;
       });
@@ -165,6 +171,7 @@ var STORAGE = (function(){
       var usarSupabase = S.url && S.key;
       function desdeIdb(){
         backend='idb';
+        diag('init → modo LOCAL (nube no disponible)');
         cargarIdb().then(function(){ resolve('idb'); }, function(){ resolve('idb'); });
       }
       if(!usarSupabase){ desdeIdb(); return; }
@@ -175,6 +182,7 @@ var STORAGE = (function(){
         return sbList();
       }).then(function(rows){
         rows = rows||[];
+        diag('init → sbList rows='+rows.length+' → modo NUBE');
         if(rows.length){
           // La nube solo pisa lo local si trae datos; si está vacía se conserva lo local.
           rows.forEach(function(r){
@@ -185,6 +193,7 @@ var STORAGE = (function(){
         resolve('supabase');
       }, function(e){
         // nube no disponible (sin tabla, sin red...): espejo local
+        diag('init → sbList FALLO: '+String((e&&e.message)||e).slice(0,140));
         STORAGE.supabaseError = e;
         desdeIdb();
       });
@@ -199,14 +208,16 @@ var STORAGE = (function(){
     get: function(key){ return Promise.resolve(MEM.has(key)?MEM.get(key):null); },
     set: function(key,val){
       MEM.set(key,val);
+      diag('guardar '+key+' → idb'+(backend==='supabase'?' + nube':' (local, nube no activa)'));
       var idbp = idbSet(key,val).catch(function(){});
       if(backend==='supabase') return idbp.then(function(){
-        return sbSet(key,val).then(function(){ if(cloudFail) cloudFail=false; }, function(e){ cloudFail=true; cloudFailMsg=String((e&&e.message)||e).slice(0,160); });
+        return sbSet(key,val).then(function(){ if(cloudFail) cloudFail=false; }, function(e){ cloudFail=true; cloudFailMsg=String((e&&e.message)||e).slice(0,160); diag('guardar '+key+' → NUBE FALLO: '+cloudFailMsg); });
       });
       return idbp;
     },
     remove: function(key){
       MEM.delete(key);
+      diag('borrar '+key+' → idb'+(backend==='supabase'?' + nube':' (local, nube no activa)'));
       var idbp = idbDel(key).catch(function(){});
       if(backend==='supabase') return idbp.then(function(){ return sbDel(key).catch(function(){}); });
       return idbp;
@@ -967,6 +978,7 @@ function actualizarIndicador(b){
 }
 
 async function iniciar(){
+  diag('app inicia: online='+navigator.onLine+' SW-control='+(navigator.serviceWorker&&navigator.serviceWorker.controller?'si':'no'));
   // registro PWA
   if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
   var b = await STORAGE.init();
@@ -993,6 +1005,15 @@ async function iniciar(){
   }
   renderLista();
   llenarTemplates();
+
+  // visor de diagnóstico: abrir la web con ?diag=1
+  if(/[?&]diag=1/.test(location.search)){
+    var oDiag=document.createElement('div');
+    oDiag.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#0b0b0b;color:#7CFC00;font:10px/1.5 Consolas;overflow:auto;padding:8px;white-space:pre-wrap;';
+    var verDiag=function(){ oDiag.textContent=(window.__DIAG||[]).join('\n'); };
+    verDiag(); setInterval(verDiag, 1500);
+    document.body.appendChild(oDiag);
+  }
 
   // eventos globales
   window.addEventListener('online', function(){ app.online=true; actualizarIndicador(STORAGE.backend()==='supabase'?'supabase':'idb'); });
