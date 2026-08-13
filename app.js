@@ -111,6 +111,7 @@ var STORAGE = (function(){
   var MEM = new Map();
   var backend = null; // 'supabase' | 'idb'
   var cloudFail = false; // la nube rechazó una escritura (permisos/RLS)
+  var cloudFailMsg = ''; // último motivo de fallo de nube (para el aviso)
   var idbPromise = null;
   var S = { url:(window.CONFIG&&window.CONFIG.supabaseUrl)||'', key:(window.CONFIG&&window.CONFIG.supabaseAnonKey)||'', table:(window.CONFIG&&window.CONFIG.supabaseTable)||'kv' };
 
@@ -133,12 +134,21 @@ var STORAGE = (function(){
   function sbReq(method, qs, body, prefer){
     var h = { 'apikey':S.key, 'Authorization':'Bearer '+S.key, 'Content-Type':'application/json' };
     if(prefer) h.Prefer = prefer;
-    return fetch(S.url+'/rest/v1/'+S.table+qs, { method:method, headers:h, body:body?JSON.stringify(body):undefined })
-      .then(function(r){
+    var url = S.url+'/rest/v1/'+S.table+qs;
+    var opts = { method:method, headers:h, body:body?JSON.stringify(body):undefined };
+    // Reintentos ante fallos transitorios de red (los POST son idempotentes: upsert por clave)
+    var intentos = 3;
+    function intento(n){
+      return fetch(url, opts).then(function(r){
         if(!r.ok && r.status!==204) return r.text().then(function(t){ throw new Error('Supabase '+r.status+': '+t); });
         if(method==='GET') return r.text().then(function(t){ return t?JSON.parse(t):null; });
         return null;
+      }).catch(function(e){
+        if(n < intentos) return new Promise(function(res){ setTimeout(res, 400*n); }).then(function(){ return intento(n+1); });
+        throw e;
       });
+    }
+    return intento(1);
   }
   var sbGet = function(key){ return sbReq('GET','?select=value&key=eq.'+encodeURIComponent(key)).then(function(a){ return a&&a[0]&&a[0].value!==undefined?a[0].value:null; }); };
   var sbSet = function(key,val){ return sbReq('POST','',[{key:key,value:val}],'resolution=merge-duplicates,return=minimal'); };
@@ -185,11 +195,14 @@ var STORAGE = (function(){
     init: init,
     backend: function(){ return backend; },
     cloudFail: function(){ return cloudFail; },
+    cloudError: function(){ return cloudFailMsg; },
     get: function(key){ return Promise.resolve(MEM.has(key)?MEM.get(key):null); },
     set: function(key,val){
       MEM.set(key,val);
       var idbp = idbSet(key,val).catch(function(){});
-      if(backend==='supabase') return idbp.then(function(){ return sbSet(key,val).catch(function(e){ cloudFail=true; }); });
+      if(backend==='supabase') return idbp.then(function(){
+        return sbSet(key,val).then(function(){ if(cloudFail) cloudFail=false; }, function(e){ cloudFail=true; cloudFailMsg=String((e&&e.message)||e).slice(0,160); });
+      });
       return idbp;
     },
     remove: function(key){
@@ -223,8 +236,14 @@ function avisarNube(){
   var b = $id('setupBanner');
   if(!b || b._avisadoNube) return;
   b._avisadoNube = true;
-  var sql = 'create policy "acceso_abierto" on public.kv for all using (true) with check (true);';
-  b.innerHTML = '⚠ La nube rechaza las escrituras (falta el permiso RLS). Las obras quedan guardadas en este dispositivo y no se comparten. Abre <b>'+esc(window.CONFIG.supabaseUrl)+'</b> → SQL Editor → pega:<pre>'+esc(sql)+'</pre><button class="boton pequeno" onclick="location.reload()">Ya lo he hecho, recargar</button>';
+  var err = STORAGE.cloudError();
+  var esRls = /42501|RLS|policy/i.test(err);
+  var detalle = esRls ? '<br>La nube rechazó la escritura por permisos (RLS).' : '<br>Detalle: <b>'+esc(err)+'</b>';
+  if(esRls){
+    var sql = 'create policy "acceso_abierto" on public.kv for all using (true) with check (true);';
+    detalle += ' Abre <b>'+esc(window.CONFIG.supabaseUrl)+'</b> → SQL Editor → pega:<pre>'+esc(sql)+'</pre>';
+  }
+  b.innerHTML = '⚠ La nube no guardó algunos datos (se reintentó). Quedan guardados en este dispositivo.'+detalle+'<button class="boton pequeno" onclick="location.reload()">Recargar</button>';
   b.classList.remove('hidden');
   actualizarIndicador('setup');
 }
