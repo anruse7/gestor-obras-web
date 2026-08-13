@@ -1,0 +1,17 @@
+{
+  "name": "Gestor de Obras MT/BT",
+  "short_name": "Gestor Obras",
+  "description": "Gestión de obras de media y baja tensión: replanteo, fotos, fases, facturación y exportación de documentación.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1a4d8f",
+  "theme_color": "#1a4d8f",
+  "lang": "es",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

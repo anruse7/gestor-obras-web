@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1a4d8f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Gestor de Obras MT/BT</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+:root{
+  --azul:#1a4d8f; --azul2:#2563eb; --azulclaro:#dbeafe;
+  --gris:#f3f4f6; --borde:#d1d5db; --texto:#111827; --sub:#4b5563;
+  --verde:#059669; --rojo:#dc2626; --ambar:#b45309;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{font-family:Segoe UI,Roboto,Arial,sans-serif;background:var(--gris);color:var(--texto);font-size:15px;line-height:1.4;}
+button{font-family:inherit;}
+.hidden{display:none!important;}
+
+/* ---------- cabecera ---------- */
+header{background:var(--azul);color:#fff;padding:10px 12px;position:sticky;top:0;z-index:20;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+header .barra{display:flex;align-items:center;gap:8px;}
+header h1{font-size:16px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.btn-volver{background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:6px;padding:5px 10px;font-size:14px;cursor:pointer;}
+.btn-icono{background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:6px;padding:5px 9px;font-size:14px;cursor:pointer;}
+#indicadorSync{display:inline-flex;align-items:center;gap:5px;font-size:12px;background:rgba(255,255,255,.15);padding:3px 8px;border-radius:12px;}
+.dot{width:8px;height:8px;border-radius:50%;background:#86efac;display:inline-block;}
+.dot.off{background:#fca5a5;}
+.dot.sync{background:#fcd34d;animation:parpadeo 1s infinite;}
+@keyframes parpadeo{50%{opacity:.3;}}
+
+/* ---------- botones generales ---------- */
+.boton{background:var(--azul2);color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:14px;cursor:pointer;}
+.boton:hover{filter:brightness(1.08);}
+.boton.gris{background:#6b7280;}
+.boton.verde{background:var(--verde);}
+.boton.rojo{background:var(--rojo);}
+.boton.amarillo{background:#d97706;}
+.boton.contorno{background:#fff;color:var(--azul2);border:1px solid var(--azul2);}
+.boton.pequeno{padding:4px 9px;font-size:13px;border-radius:6px;}
+
+/* ---------- tarjetas y listas ---------- */
+.tarjeta{background:#fff;border:1px solid var(--borde);border-radius:10px;padding:12px;margin:10px 12px;box-shadow:0 1px 2px rgba(0,0,0,.04);}
+.espacio{padding:10px 12px;}
+input,select,textarea{font-family:inherit;font-size:15px;padding:8px 10px;border:1px solid var(--borde);border-radius:8px;width:100%;background:#fff;color:var(--texto);}
+label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
+.fila{display:flex;gap:8px;align-items:center;}
+.fila > *{flex:1;}
+.fila .sin-flex{flex:0 0 auto;}
+
+/* ---------- lista de obras ---------- */
+#buscadorObras{width:100%;}
+.obra-item{border-bottom:1px solid var(--borde);padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;}
+.obra-item:active{background:var(--azulclaro);}
+.obra-lcl{font-weight:600;font-size:15px;}
+.obra-dir{font-size:13px;color:var(--sub);}
+.obra-izq{flex:1;min-width:0;}
+.estado-chip{font-size:11px;padding:3px 8px;border-radius:12px;white-space:nowrap;background:#e5e7eb;color:#374151;}
+.estado-chip.Alta{background:#fef3c7;color:#92400e;}
+.estado-chip.Replanteo{background:#dbeafe;color:#1e40af;}
+.estado-chip.Presupuesto{background:#e0e7ff;color:#3730a3;}
+.estado-chip.en-ejecucion{background:#dcfce7;color:#166534;}
+.estado-chip.Parada{background:#fee2e2;color:#991b1b;}
+.estado-chip.Finalizada{background:#e5e7eb;color:#374151;}
+.estado-chip.Facturada{background:#f3e8ff;color:#6b21a8;}
+.btn-eliminar{background:none;border:none;font-size:16px;cursor:pointer;color:var(--rojo);padding:6px;}
+
+/* ---------- detalle de obra ---------- */
+#cabezaObra{padding:12px 14px 6px;}
+#cabezaObra h2{margin:0;font-size:18px;}
+#cabezaObra .sub{font-size:13px;color:var(--sub);}
+.fases{display:flex;gap:6px;padding:8px 12px;overflow-x:auto;}
+.fase-btn{border:1px solid var(--borde);background:#fff;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;white-space:nowrap;}
+.fase-btn.activa{background:var(--azul);color:#fff;border-color:var(--azul);}
+.fase-btn.deshabilitada{opacity:.45;cursor:default;}
+#tabs{display:flex;background:#fff;border-bottom:1px solid var(--borde);position:sticky;top:56px;z-index:15;overflow-x:auto;}
+#tabs button{flex:1;background:none;border:none;padding:10px 4px;font-size:13px;color:var(--sub);border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap;min-width:64px;}
+#tabs button.activa{color:var(--azul);border-bottom-color:var(--azul);font-weight:600;}
+
+/* ---------- buscador de partidas ---------- */
+.buscador-ok{position:relative;}
+.resultados{background:#fff;border:1px solid var(--borde);border-radius:8px;margin-top:4px;max-height:260px;overflow:auto;box-shadow:0 4px 10px rgba(0,0,0,.1);}
+.resultado-item{padding:8px 10px;border-bottom:1px solid var(--borde);cursor:pointer;}
+.resultado-item:active{background:var(--azulclaro);}
+.resultado-item .rd{font-size:13px;}
+.resultado-item .rc{font-size:11px;color:var(--sub);}
+.tipo-flag{font-size:10px;padding:1px 6px;border-radius:8px;margin-right:6px;}
+.tipo-flag.partida{background:var(--azulclaro);color:#1e40af;}
+.tipo-flag.material{background:#f3e8ff;color:#6b21a8;}
+
+/* ---------- línea de partida (2 filas) ---------- */
+.linea{background:#fff;border:1px solid var(--borde);border-radius:10px;padding:9px 10px;margin:8px 12px;}
+.linea-fila1{display:flex;gap:8px;align-items:flex-start;}
+.linea-codigo{font-size:12px;color:var(--azul2);background:var(--azulclaro);padding:1px 6px;border-radius:6px;white-space:nowrap;font-family:Consolas,monospace;}
+.linea-desc{font-size:14px;flex:1;min-width:0;}
+.linea-desc .uni{font-size:11px;color:var(--sub);}
+.linea-importe{font-size:13px;font-weight:600;white-space:nowrap;}
+.linea-importe.cero{color:var(--ambar);}
+.linea-aviso{font-size:10px;color:var(--ambar);}
+.linea-fila2{display:flex;align-items:center;gap:6px;margin-top:7px;flex-wrap:wrap;}
+.stepper{display:inline-flex;align-items:center;border:1px solid var(--borde);border-radius:8px;overflow:hidden;}
+.stepper button{width:30px;height:30px;border:none;background:#fff;font-size:16px;cursor:pointer;}
+.stepper button:active{background:var(--azulclaro);}
+.stepper input{width:46px;height:30px;border:none;text-align:center;font-size:14px;border-left:1px solid var(--borde);border-right:1px solid var(--borde);border-radius:0;padding:0;}
+.accion-btn{border:1px solid var(--borde);background:#fff;border-radius:8px;padding:5px 9px;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;}
+.accion-btn:active{background:var(--gris);}
+.accion-btn.rojo{color:var(--rojo);}
+.comentario-linea{font-size:12px;color:var(--sub);background:#f9fafb;border-radius:6px;padding:4px 8px;margin-top:5px;}
+.seccion-titulo{font-size:13px;font-weight:600;color:var(--azul);padding:12px 12px 2px;}
+.seccion-titulo .n{color:var(--sub);font-weight:400;}
+
+/* ---------- fotos ---------- */
+#galeria{display:flex;flex-wrap:wrap;gap:8px;padding:10px 12px;}
+.foto-thumb{width:calc(33.33% - 6px);aspect-ratio:1;object-fit:cover;border-radius:8px;border:1px solid var(--borde);cursor:pointer;background:#e5e7eb;}
+#modalFoto{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+#modalFoto img{max-width:95vw;max-height:75vh;border-radius:8px;}
+#modalFoto .cap{color:#fff;font-size:13px;margin-top:8px;max-width:90vw;text-align:center;white-space:pre-wrap;}
+#modalFoto .acciones{display:flex;gap:8px;margin-top:10px;}
+#modalFoto button{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;}
+
+/* ---------- documentos ---------- */
+.doc-item{border-bottom:1px solid var(--borde);padding:10px 14px;}
+.doc-item .dn{font-weight:600;font-size:14px;}
+.doc-item .dn2{font-size:12px;color:var(--sub);white-space:pre-wrap;}
+.correo-encargo{background:#f8fafc;border-left:4px solid var(--azul2);border-radius:6px;padding:10px;font-size:13px;white-space:pre-wrap;margin:8px 0;}
+
+/* ---------- facturación ---------- */
+.li-fact{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--borde);flex-wrap:wrap;}
+.li-fact input{width:70px;}
+.resumen-fact{background:#f8fafc;border-radius:8px;padding:10px;margin:10px 0;font-size:13px;}
+.resumen-fact .imp{font-size:16px;font-weight:700;color:var(--azul);}
+
+/* ---------- historial ---------- */
+.his-item{border-left:3px solid var(--azul2);padding:6px 10px;margin-bottom:8px;background:#f8fafc;border-radius:0 8px 8px 0;font-size:13px;}
+.his-item .hf{font-size:11px;color:var(--sub);}
+
+/* ---------- banner de setup ---------- */
+#setupBanner{background:#fef3c7;border-bottom:1px solid #f59e0b;padding:10px 14px;font-size:13px;color:#78350f;}
+#setupBanner pre{background:#fff;border:1px solid #f59e0b;border-radius:6px;padding:8px;font-size:11px;overflow:auto;margin:6px 0;white-space:pre-wrap;}
+
+/* ---------- toast ---------- */
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;z-index:200;opacity:0;transition:opacity .25s;max-width:90vw;text-align:center;pointer-events:none;}
+#toast.show{opacity:1;}
+
+/* ---------- modal genérico ---------- */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:90;display:flex;align-items:flex-end;justify-content:center;}
+.overlay .caja{background:#fff;width:100%;max-width:560px;max-height:85vh;overflow:auto;border-radius:14px 14px 0 0;padding:16px;animation:subir .2s;}
+@keyframes subir{from{transform:translateY(20px);opacity:0;}}
+.overlay .caja h3{margin:0 0 10px;font-size:16px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="barra">
+    <button class="btn-volver hidden" id="btnVolver">←</button>
+    <h1 id="tituloCab">Gestor de Obras MT/BT</h1>
+    <span id="indicadorSync" title="Estado de sincronización"><span class="dot" id="dotSync"></span><span id="txtSync">…</span></span>
+    <button class="btn-icono" id="btnNuevaObra" title="Nueva obra">+</button>
+  </div>
+</header>
+
+<div id="setupBanner" class="hidden"></div>
+
+<!-- ================= VISTA LISTA ================= -->
+<div id="vistaLista">
+  <div class="espacio">
+    <input type="text" id="buscadorObras" placeholder="🔍 Buscar por LCL, dirección, municipio o correo…">
+    <div class="fila" style="margin-top:10px;flex-wrap:wrap">
+      <button class="boton contorno" id="btnExportarCopia">📥 Exportar copia</button>
+      <button class="boton contorno" id="btnImportarCopia">📤 Importar copia</button>
+      <button class="boton contorno" id="btnInstalarApp">📲 Instalar app</button>
+    </div>
+  </div>
+  <div id="listaObras"></div>
+  <input type="file" id="inputImportar" accept=".json" class="hidden">
+</div>
+
+<!-- ================= VISTA ALTA ================= -->
+<div id="vistaAlta" class="hidden">
+  <div class="tarjeta">
+    <h3 style="margin:0 0 4px">Nueva obra</h3>
+    <label>LCL</label>
+    <input type="text" id="fLcl" placeholder="ej. LCL-2026-0001">
+    <label>Dirección</label>
+    <input type="text" id="fDireccion" placeholder="Calle y número">
+    <label>Municipio</label>
+    <input type="text" id="fMunicipio" list="listaMunicipios" placeholder="Escribe el municipio…">
+    <datalist id="listaMunicipios"></datalist>
+    <div class="fila">
+      <div>
+        <label>Zona aéreo</label>
+        <input type="text" id="fZonaAereo" placeholder="Llanura / Montaña">
+      </div>
+      <div>
+        <label>Zona subterráneo</label>
+        <input type="text" id="fZonaSubt" placeholder="Urbano / Periferia">
+      </div>
+    </div>
+    <div class="fila">
+      <div>
+        <label>Provincia</label>
+        <input type="text" id="fProvincia" readonly>
+      </div>
+      <div>
+        <label>Centro de control</label>
+        <input type="text" id="fCc" readonly>
+      </div>
+    </div>
+    <label>Correo de encargo</label>
+    <textarea id="fCorreo" rows="4" placeholder="Cuerpo del correo de encargo…"></textarea>
+    <label>Valoración tipo (opcional, precarga el replanteo)</label>
+    <select id="fTemplate">
+      <option value="">— ninguna —</option>
+    </select>
+    <div class="fila" style="margin-top:14px">
+      <button class="boton gris" id="btnCancelarAlta">Cancelar</button>
+      <button class="boton" id="btnGuardarAlta">Crear obra</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= VISTA DETALLE ================= -->
+<div id="vistaDetalle" class="hidden">
+  <div id="cabezaObra">
+    <h2 id="cLcl">-</h2>
+    <div class="sub" id="cDir">-</div>
+    <div class="fila" style="margin-top:6px;flex-wrap:wrap;gap:6px">
+      <span class="estado-chip" id="cEstado">-</span>
+      <span style="font-size:12px;color:var(--sub)" id="cZonas"></span>
+    </div>
+  </div>
+  <div class="fases" id="fasesBar"></div>
+  <div id="tabs">
+    <button data-tab="partidas" class="activa">Partidas</button>
+    <button data-tab="fotos">Fotos</button>
+    <button data-tab="documentos">Documentos</button>
+    <button data-tab="facturacion">Facturación</button>
+    <button data-tab="info">Info</button>
+  </div>
+
+  <!-- PARTIDAS -->
+  <div id="tab-partidas">
+    <div class="espacio buscador-ok">
+      <input type="text" id="buscarPartida" placeholder="🔍 Buscar partida o material…">
+      <div id="resultadosBusqueda" class="resultados hidden"></div>
+    </div>
+    <div class="espacio" style="padding-top:0">
+      <div class="fila">
+        <button class="boton contorno pequeno" id="btnCargarTemplate">📋 Cargar valoración tipo</button>
+        <select id="selectTemplate" style="flex:2">
+          <option value="">— elegir plantilla —</option>
+        </select>
+      </div>
+    </div>
+    <div class="seccion-titulo">Partidas del baremo <span class="n" id="nPartidas"></span></div>
+    <div id="listaPartidas"></div>
+    <div class="seccion-titulo">Materiales <span class="n" id="nMateriales"></span></div>
+    <div id="listaMateriales"></div>
+    <div style="height:30px"></div>
+  </div>
+
+  <!-- FOTOS -->
+  <div id="tab-fotos" class="hidden">
+    <div class="espacio">
+      <button class="boton" id="btnFotoGeneral">📷 Añadir foto general de la obra</button>
+    </div>
+    <div id="galeria"></div>
+    <div style="height:30px"></div>
+  </div>
+
+  <!-- DOCUMENTOS -->
+  <div id="tab-documentos" class="hidden">
+    <div class="tarjeta">
+      <div class="seccion-titulo" style="padding:0 0 4px">Correo de encargo</div>
+      <div class="correo-encargo" id="cCorreo">-</div>
+      <button class="boton contorno pequeno" id="btnEditarCorreo">✏️ Editar correo</button>
+    </div>
+    <div class="tarjeta">
+      <div class="seccion-titulo" style="padding:0 0 4px">Notas y documentos</div>
+      <label>Nombre / referencia</label>
+      <input type="text" id="docNombre" placeholder="ej. Acta de replanteo">
+      <label>Notas</label>
+      <textarea id="docNotas" rows="2" placeholder="Texto libre…"></textarea>
+      <button class="boton pequeno" style="margin-top:8px" id="btnAddDoc">＋ Añadir nota</button>
+      <div id="listaDocs"></div>
+    </div>
+  </div>
+
+  <!-- FACTURACIÓN -->
+  <div id="tab-facturacion" class="hidden">
+    <div class="espacio">
+      <button class="boton" id="btnCopiarReplanteo">📋 Copiar cantidades del replanteo</button>
+    </div>
+    <div id="listaFacturacion" class="espacio"></div>
+    <div class="resumen-fact" id="resumenFact"></div>
+    <div style="height:30px"></div>
+  </div>
+
+  <!-- INFO -->
+  <div id="tab-info" class="hidden">
+    <div class="tarjeta">
+      <div class="seccion-titulo" style="padding:0 0 6px">Exportar documentación</div>
+      <div class="fila" style="flex-wrap:wrap">
+        <button class="boton verde" id="btnExportarZip">📦 Exportar ZIP</button>
+        <button class="boton" id="btnCompartirZip">📤 Compartir ZIP</button>
+      </div>
+    </div>
+    <div class="tarjeta">
+      <div class="seccion-titulo" style="padding:0 0 6px">Historial</div>
+      <div id="listaHistorial"></div>
+    </div>
+  </div>
+</div>
+
+<!-- modal foto -->
+<div id="modalFoto" class="hidden"></div>
+<!-- overlay genérico -->
+<div id="overlay" class="hidden"></div>
+<div id="toast"></div>
+
+<input type="file" id="inputFoto" accept="image/*" capture="environment" class="hidden">
+<input type="file" id="inputFotoCamara" accept="image/*" class="hidden">
+
+<script src="libs/jszip.min.js"></script>
+<script src="libs/xlsx.full.min.js"></script>
+<script src="libs/jspdf.umd.min.js"></script>
+<script src="config.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

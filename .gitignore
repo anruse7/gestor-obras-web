@@ -1,0 +1,16 @@
+# Copias de seguridad y material fuente (no van a la web ni a GitHub)
+versiones/
+excel-originales/
+publicar/
+
+# Herramientas de desarrollo locales
+_generar.html
+convertidor.html
+filelist.json
+snapshot.bat
+subir-version.bat
+subir-version.ps1
+
+# Sistema
+Thumbs.db
+.DS_Store
