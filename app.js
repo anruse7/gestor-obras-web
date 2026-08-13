@@ -1006,14 +1006,7 @@ async function iniciar(){
   renderLista();
   llenarTemplates();
 
-  // visor de diagnóstico: abrir la web con ?diag=1
-  if(/[?&]diag=1/.test(location.search)){
-    var oDiag=document.createElement('div');
-    oDiag.style.cssText='position:fixed;bottom:0;left:0;right:0;max-height:32vh;overflow:auto;z-index:9999;background:rgba(8,8,8,.88);color:#7CFC00;font:10px/1.5 Consolas;padding:6px 8px;white-space:pre-wrap;pointer-events:none;';
-    var verDiag=function(){ oDiag.textContent=(window.__DIAG||[]).join('\n'); };
-    verDiag(); setInterval(verDiag, 1200);
-    document.body.appendChild(oDiag);
-  }
+  // Registro de diagnóstico disponible en consola: window.__DIAG
 
   // eventos globales
   window.addEventListener('online', function(){ app.online=true; actualizarIndicador(STORAGE.backend()==='supabase'?'supabase':'idb'); });
