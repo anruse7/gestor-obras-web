@@ -110,6 +110,7 @@ function datosPartida(codigo){
 var STORAGE = (function(){
   var MEM = new Map();
   var backend = null; // 'supabase' | 'idb'
+  var cloudFail = false; // la nube rechazó una escritura (permisos/RLS)
   var idbPromise = null;
   var S = { url:(window.CONFIG&&window.CONFIG.supabaseUrl)||'', key:(window.CONFIG&&window.CONFIG.supabaseAnonKey)||'', table:(window.CONFIG&&window.CONFIG.supabaseTable)||'kv' };
 
@@ -145,24 +146,35 @@ var STORAGE = (function(){
   var sbList = function(){ return sbReq('GET','?select=key,value&limit=10000'); };
 
   function init(){
+    function cargarIdb(){
+      return idbKeys().then(function(keys){
+        return Promise.all(keys.map(function(k){ return idbGet(k).then(function(v){ MEM.set(k,v); }); }));
+      });
+    }
     return new Promise(function(resolve){
       var usarSupabase = S.url && S.key;
       function desdeIdb(){
         backend='idb';
-        idbKeys().then(function(keys){
-          return Promise.all(keys.map(function(k){ return idbGet(k).then(function(v){ MEM.set(k,v); }); }));
-        }).then(function(){ resolve('idb'); }, function(){ resolve('idb'); });
+        cargarIdb().then(function(){ resolve('idb'); }, function(){ resolve('idb'); });
       }
       if(!usarSupabase){ desdeIdb(); return; }
       backend='supabase';
-      sbList().then(function(rows){
-        var tasks = (rows||[]).map(function(r){
-          MEM.set(r.key, r.value);
-          return idbSet(r.key, r.value).catch(function(){});
-        });
-        return Promise.all(tasks).then(function(){ resolve('supabase'); });
-      }).catch(function(e){
-        // tabla no creada o sin red: usar espejo local
+      // Primero se carga la copia local (IndexedDB): así la lista nunca aparece vacía
+      // aunque la nube esté vacía o rechace las escrituras.
+      cargarIdb().then(function(){
+        return sbList();
+      }).then(function(rows){
+        rows = rows||[];
+        if(rows.length){
+          // La nube solo pisa lo local si trae datos; si está vacía se conserva lo local.
+          rows.forEach(function(r){
+            MEM.set(r.key, r.value);
+            idbSet(r.key, r.value).catch(function(){});
+          });
+        }
+        resolve('supabase');
+      }, function(e){
+        // nube no disponible (sin tabla, sin red...): espejo local
         STORAGE.supabaseError = e;
         desdeIdb();
       });
@@ -172,11 +184,12 @@ var STORAGE = (function(){
   return {
     init: init,
     backend: function(){ return backend; },
+    cloudFail: function(){ return cloudFail; },
     get: function(key){ return Promise.resolve(MEM.has(key)?MEM.get(key):null); },
     set: function(key,val){
       MEM.set(key,val);
       var idbp = idbSet(key,val).catch(function(){});
-      if(backend==='supabase') return idbp.then(function(){ return sbSet(key,val).catch(function(){}); });
+      if(backend==='supabase') return idbp.then(function(){ return sbSet(key,val).catch(function(e){ cloudFail=true; }); });
       return idbp;
     },
     remove: function(key){
@@ -205,7 +218,17 @@ var app = {
 function indiceResumen(o){
   return { id:o.id, lcl:o.lcl, direccion:o.direccion, municipio:o.municipio, estado:o.estado, fechaAlta:o.fechaAlta, correo:o.correo, valoracion:totalValoracion(o) };
 }
-async function guardarLista(){ await STORAGE.set('index', app.obras); }
+function avisarNube(){
+  if(!STORAGE.cloudFail || !window.CONFIG || !window.CONFIG.supabaseUrl) return;
+  var b = $id('setupBanner');
+  if(!b || b._avisadoNube) return;
+  b._avisadoNube = true;
+  var sql = 'create policy "acceso_abierto" on public.kv for all using (true) with check (true);';
+  b.innerHTML = '⚠ La nube rechaza las escrituras (falta el permiso RLS). Las obras quedan guardadas en este dispositivo y no se comparten. Abre <b>'+esc(window.CONFIG.supabaseUrl)+'</b> → SQL Editor → pega:<pre>'+esc(sql)+'</pre><button class="boton pequeno" onclick="location.reload()">Ya lo he hecho, recargar</button>';
+  b.classList.remove('hidden');
+  actualizarIndicador('setup');
+}
+async function guardarLista(){ await STORAGE.set('index', app.obras); avisarNube(); }
 async function guardarObra(){
   await STORAGE.set('obra:'+app.obra.id, app.obra);
   for(var i=0;i<app.obras.length;i++){ if(app.obras[i].id===app.obra.id){ app.obras[i]=indiceResumen(app.obra); break; } }

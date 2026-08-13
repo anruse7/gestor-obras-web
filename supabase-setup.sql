@@ -5,6 +5,12 @@
 --    2. Pega todo este bloque y pulsa "Run"
 -- ============================================================
 
+-- >>> REPARAR (si ya tienes la tabla creada pero no se guarda en la nube) <<<
+--   Si al guardar ves el aviso "La nube rechaza las escrituras", la tabla kv existe
+--   pero le falta la política de acceso. Ejecuta SOLO estas dos líneas:
+--     drop policy if exists "acceso_abierto" on public.kv;
+--     create policy "acceso_abierto" on public.kv for all using (true) with check (true);
+
 create table if not exists public.kv (
   key text primary key,
   value jsonb not null default '{}'::jsonb,
