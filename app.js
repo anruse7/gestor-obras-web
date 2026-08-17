@@ -91,14 +91,27 @@ function buscarMateriales(t){
   }
   return out;
 }
-function buscarCombinado(texto){
+function buscarCombinado(texto, filtro){
   var t=texto.trim().toLowerCase();
-  if(!t) return [];
+  if(!t && !filtro) return [];
   var out=[];
-  buscarBaremo(t).forEach(function(p){ out.push({tipo:'partida',c:p.c,d:p.d,u:p.u,f:p.f}); });
-  buscarMateriales(t).forEach(function(m){ out.push({tipo:'material',c:m.c,d:m.d,u:m.u}); });
+  buscarBaremo(t).forEach(function(p){
+    if(filtro && filtro!=='_materiales'){
+      var nf = normalizarFamilia(p.f||'');
+      var ne = normalizarFamilia(p.e||'');
+      var nfiltro = normalizarFamilia(filtro);
+      if(nf!==nfiltro && ne!==nfiltro) return;
+    }
+    var pr = precioPartida(p.c);
+    out.push({tipo:'partida',c:p.c,d:p.d,u:p.u,f:p.f,e:p.e,puntos:p.p,importe:pr?pr.importe:0,valorPunto:pr?pr.valorPunto:0,aviso:pr?pr.aviso:true});
+  });
+  if(!filtro || filtro==='_materiales'){
+    buscarMateriales(t).forEach(function(m){
+      out.push({tipo:'material',c:m.c,d:m.d,u:m.u,g:m.g||'',puntos:0,importe:0,valorPunto:0,aviso:false});
+    });
+  }
   out.sort(function(a,b){ return a.d<b.d?-1:1; });
-  return out.slice(0,30);
+  return out.slice(0,80);
 }
 function nombrePartida(codigo){
   for(var i=0;i<DAT.baremo.length;i++) if(DAT.baremo[i].c===codigo) return DAT.baremo[i].d;
@@ -259,6 +272,7 @@ var app = {
   vista: 'lista',       // lista | alta | detalle
   tab: 'partidas',
   busquedaPartida: '',
+  busquedaFiltro: '',
   online: true,
   instalable: false
 };
@@ -309,6 +323,14 @@ function anadirLinea(tipo, codigo){
   var i = buscarLinea(lista, codigo);
   if(i>=0){ lista[i].cantidad = (lista[i].cantidad||0)+1; }
   else lista.push({codigo:codigo, cantidad:1, comentario:''});
+  guardarObra();
+  renderPartidas();
+}
+function anadirLineaCant(tipo, codigo, cantidad){
+  var lista = tipo==='partida' ? app.obra.replanteo : app.obra.materiales;
+  var i = buscarLinea(lista, codigo);
+  if(i>=0){ lista[i].cantidad = (lista[i].cantidad||0)+cantidad; }
+  else lista.push({codigo:codigo, cantidad:cantidad, comentario:''});
   guardarObra();
   renderPartidas();
 }
@@ -536,15 +558,55 @@ function renderTabs(){
 }
 
 /* ---------------- Partidas ---------------- */
+function renderFiltros(){
+  var el = $id('filtrosBusqueda');
+  if(!el) return;
+  var esps = {};
+  DAT.baremo.forEach(function(p){
+    var e = normalizarFamilia(p.e||p.f||'');
+    if(e) esps[e]=1;
+  });
+  var chips = '<button class="filtro-chip'+(!app.busquedaFiltro?' activo':'')+'" data-filtro="">Todas</button>';
+  Object.keys(esps).sort().forEach(function(e){
+    chips += '<button class="filtro-chip'+(app.busquedaFiltro===e?' activo':'')+'" data-filtro="'+esc(e)+'">'+esc(e)+'</button>';
+  });
+  chips += '<button class="filtro-chip'+(app.busquedaFiltro==='_materiales'?' activo':'')+'" data-filtro="_materiales">Materiales</button>';
+  el.innerHTML = chips;
+}
 function renderResultados(){
-  var res = buscarCombinado(app.busquedaPartida);
+  var res = buscarCombinado(app.busquedaPartida, app.busquedaFiltro);
   var el = $id('resultadosBusqueda');
-  if(!app.busquedaPartida.trim() || !res.length){ el.classList.add('hidden'); return; }
-  var html = '';
+  var buscaVacia = !app.busquedaPartida.trim() && !app.busquedaFiltro;
+  if(buscaVacia || !res.length){ el.classList.add('hidden'); return; }
+  var html = '<div class="resultados-contador">'+res.length+' resultado'+(res.length!==1?'s':'')+'</div>';
+  var replMap = {}, matMap = {};
+  if(app.obra){
+    (app.obra.replanteo||[]).forEach(function(r){ replMap[r.codigo]=(r.cantidad||0); });
+    (app.obra.materiales||[]).forEach(function(m){ matMap[m.codigo]=(m.cantidad||0); });
+  }
   res.forEach(function(r){
-    html += '<div class="resultado-item" data-add="'+r.tipo+'" data-cod="'+esc(r.c)+'">'
-      + '<div class="rd"><span class="tipo-flag '+r.tipo+'">'+r.tipo+'</span>'+esc(r.d)+'</div>'
-      + '<div class="rc">'+esc(r.c)+(r.u?' · '+esc(r.u):'')+(r.f?' · '+esc(r.f):'')+'</div>'
+    var ya = r.tipo==='partida' ? (replMap[r.c]||0) : (matMap[r.c]||0);
+    var yaStr = ya ? '<span class="ri-ya">✓ '+ya+' '+esc(r.u||'un')+'</span>' : '';
+    var clase = ya ? ' ya-anadido' : '';
+    var precioStr = '';
+    if(r.tipo==='partida' && r.valorPunto){
+      precioStr = '<span class="ri-precio">'+fmtNum(r.puntos)+' pts · '+fmtNum(r.valorPunto)+' €/pt · '+fmtEuro(r.importe)+'</span>';
+    }
+    var metaExtra = r.tipo==='partida' ? esc(r.e||'')+(r.f?' · '+esc(r.f):'') : esc(r.g||'Material');
+    html += '<div class="resultado-item'+clase+'" data-cod="'+esc(r.c)+'" data-tipo="'+r.tipo+'">'
+      + '<div class="ri-top">'
+      + '<span class="tipo-flag '+r.tipo+'">'+r.tipo+'</span>'
+      + '<span class="linea-codigo">'+esc(r.c)+'</span>'
+      + '<span style="font-size:11px;color:var(--sub)">'+esc(r.u||'')+'</span>'
+      + yaStr
+      + '</div>'
+      + '<div class="ri-desc">'+esc(r.d)+'</div>'
+      + '<div class="ri-meta">'+metaExtra+'</div>'
+      + precioStr
+      + '<div class="ri-bottom">'
+      + '<input type="number" class="ri-cant" min="1" value="1" data-cant="'+esc(r.c)+'">'
+      + '<button class="ri-add" data-add="'+r.tipo+'" data-cod="'+esc(r.c)+'">+ Añadir</button>'
+      + '</div>'
       + '</div>';
   });
   el.innerHTML = html;
@@ -1066,14 +1128,37 @@ async function iniciar(){
     if(app.tab==='info') renderHistorial();
   });
 
+  // filtros de búsqueda
+  renderFiltros();
+  $id('filtrosBusqueda').addEventListener('click', function(e){
+    var chip = e.target.closest('[data-filtro]');
+    if(!chip) return;
+    app.busquedaFiltro = chip.getAttribute('data-filtro');
+    renderFiltros();
+    renderResultados();
+  });
+
   // buscador de partidas
+  var _blurTimer = null;
   $id('buscarPartida').addEventListener('input', function(){ app.busquedaPartida=this.value; renderResultados(); });
-  $id('buscarPartida').addEventListener('focus', function(){ if(this.value.trim()) renderResultados(); });
-  $id('buscarPartida').addEventListener('blur', function(){ setTimeout(function(){ $id('resultadosBusqueda').classList.add('hidden'); },200); });
-  $id('resultadosBusqueda').addEventListener('mousedown', function(e){
-    var r=e.target.closest('[data-add]'); if(!r) return;
-    e.preventDefault();
-    anadirLinea(r.getAttribute('data-add'), r.getAttribute('data-cod'));
+  $id('buscarPartida').addEventListener('focus', function(){ clearTimeout(_blurTimer); if(app.busquedaPartida.trim() || app.busquedaFiltro) renderResultados(); });
+  $id('buscarPartida').addEventListener('blur', function(){ _blurTimer=setTimeout(function(){ $id('resultadosBusqueda').classList.add('hidden'); },200); });
+  $id('resultadosBusqueda').addEventListener('mousedown', function(){ clearTimeout(_blurTimer); });
+  $id('resultadosBusqueda').addEventListener('click', function(e){
+    var addBtn = e.target.closest('.ri-add');
+    if(addBtn){
+      e.preventDefault();
+      var tipo = addBtn.getAttribute('data-add');
+      var cod = addBtn.getAttribute('data-cod');
+      var item = addBtn.closest('.resultado-item');
+      var cantInput = item ? item.querySelector('.ri-cant') : null;
+      var cant = cantInput ? parseInt(cantInput.value,10) : 1;
+      if(isNaN(cant) || cant < 1) cant = 1;
+      anadirLineaCant(tipo, cod, cant);
+      renderResultados();
+      toast('Añadido × '+cant);
+      return;
+    }
   });
   // templates en partidas
   $id('btnCargarTemplate').addEventListener('click', function(){

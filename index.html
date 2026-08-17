@@ -88,12 +88,24 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
 
 /* ---------- buscador de partidas ---------- */
 .buscador-ok{position:relative;}
-.resultados{background:#fff;border:1px solid var(--borde);border-radius:8px;margin-top:4px;max-height:260px;overflow:auto;box-shadow:0 4px 10px rgba(0,0,0,.1);}
-.resultado-item{padding:8px 10px;border-bottom:1px solid var(--borde);cursor:pointer;}
-.resultado-item:active{background:var(--azulclaro);}
-.resultado-item .rd{font-size:13px;}
-.resultado-item .rc{font-size:11px;color:var(--sub);}
-.tipo-flag{font-size:10px;padding:1px 6px;border-radius:8px;margin-right:6px;}
+.filtros-barra{display:flex;gap:6px;overflow-x:auto;padding:6px 0;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.filtros-barra::-webkit-scrollbar{display:none;}
+.filtro-chip{flex-shrink:0;font-size:12px;padding:5px 10px;border-radius:16px;border:1px solid var(--borde);background:#fff;color:var(--texto);cursor:pointer;white-space:nowrap;transition:background .15s,color .15s;}
+.filtro-chip:active,.filtro-chip.activo{background:var(--azul2);color:#fff;border-color:var(--azul2);}
+.resultados{background:#fff;border:1px solid var(--borde);border-radius:8px;margin-top:4px;max-height:420px;overflow:auto;box-shadow:0 4px 10px rgba(0,0,0,.1);}
+.resultados-contador{font-size:11px;color:var(--sub);padding:4px 10px;border-bottom:1px solid var(--borde);background:#f9fafb;position:sticky;top:0;}
+.resultado-item{padding:10px;border-bottom:1px solid var(--borde);}
+.resultado-item.ya-anadido{background:#f0fdf4;}
+.resultado-item .ri-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.resultado-item .ri-desc{font-size:14px;font-weight:500;flex:1;min-width:0;}
+.resultado-item .ri-meta{font-size:11px;color:var(--sub);margin-top:2px;}
+.resultado-item .ri-precio{font-size:12px;font-weight:600;color:var(--verde);white-space:nowrap;}
+.resultado-item .ri-ya{font-size:11px;color:var(--verde);font-weight:600;white-space:nowrap;}
+.resultado-item .ri-bottom{display:flex;align-items:center;gap:6px;margin-top:8px;}
+.resultado-item .ri-cant{width:52px;height:30px;border:1px solid var(--borde);border-radius:6px;text-align:center;font-size:13px;}
+.resultado-item .ri-add{padding:5px 12px;border-radius:6px;border:none;background:var(--azul2);color:#fff;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.resultado-item .ri-add:active{filter:brightness(.9);}
+.tipo-flag{font-size:10px;padding:1px 6px;border-radius:8px;flex-shrink:0;}
 .tipo-flag.partida{background:var(--azulclaro);color:#1e40af;}
 .tipo-flag.material{background:#f3e8ff;color:#6b21a8;}
 
@@ -252,7 +264,8 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
   <div id="tab-partidas">
     <div class="resumen-valoracion" id="resumenValoracion"></div>
     <div class="espacio buscador-ok">
-      <input type="text" id="buscarPartida" placeholder="🔍 Buscar partida o material…">
+      <input type="text" id="buscarPartida" placeholder="🔍 Buscar por código, descripción o familia…">
+      <div class="filtros-barra" id="filtrosBusqueda"></div>
       <div id="resultadosBusqueda" class="resultados hidden"></div>
     </div>
     <div class="espacio" style="padding-top:0">
