@@ -159,6 +159,30 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
 .his-item{border-left:3px solid var(--azul2);padding:6px 10px;margin-bottom:8px;background:#f8fafc;border-radius:0 8px 8px 0;font-size:13px;}
 .his-item .hf{font-size:11px;color:var(--sub);}
 
+/* ---------- control obras resumen ---------- */
+.ctrl-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f5f9;font-size:13px;}
+.ctrl-row:last-child{border-bottom:none;}
+.ctrl-label{color:var(--sub);font-weight:500;}
+.ctrl-valor{font-weight:600;text-align:right;max-width:60%;word-break:break-word;}
+
+/* ---------- calendario ---------- */
+.cal-header{display:flex;align-items:center;justify-content:space-between;padding:4px 0 10px;}
+.cal-titulo{font-size:16px;font-weight:700;color:var(--azul);}
+.cal-nav{background:none;border:1px solid var(--borde);border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;}
+.cal-nav:active{background:var(--azulclaro);}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.cal-dia-cab{font-size:10px;font-weight:600;color:var(--sub);text-align:center;padding:4px 0;}
+.cal-dia{min-height:56px;border:1px solid #f1f5f9;border-radius:6px;padding:3px 4px;font-size:11px;position:relative;}
+.cal-dia.hoy{border-color:var(--azul2);background:#eff6ff;}
+.cal-dia.vacio{background:#f9fafb;border-color:#f9fafb;}
+.cal-num{font-weight:600;font-size:12px;color:var(--texto);margin-bottom:2px;}
+.cal-dia.hoy .cal-num{color:var(--azul2);}
+.cal-ev{font-size:9px;padding:1px 3px;border-radius:3px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;}
+.cal-ev.fase{background:#dbeafe;color:#1e40af;}
+.cal-ev.alta{background:#dcfce7;color:#166534;}
+.cal-ev.parada{background:#fee2e2;color:#991b1b;}
+.cal-ev.otro{background:#f3f4f6;color:#374151;}
+
 /* ---------- banner de setup ---------- */
 #setupBanner{background:#fef3c7;border-bottom:1px solid #f59e0b;padding:10px 14px;font-size:13px;color:#78350f;}
 #setupBanner pre{background:#fff;border:1px solid #f59e0b;border-radius:6px;padding:8px;font-size:11px;overflow:auto;margin:6px 0;white-space:pre-wrap;}
@@ -257,7 +281,8 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
     <button data-tab="fotos">Fotos</button>
     <button data-tab="documentos">Documentos</button>
     <button data-tab="facturacion">Facturación</button>
-    <button data-tab="info">Info</button>
+    <button data-tab="control">Control</button>
+    <button data-tab="calendario">Calendario</button>
   </div>
 
   <!-- PARTIDAS -->
@@ -320,8 +345,12 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
     <div style="height:30px"></div>
   </div>
 
-  <!-- INFO -->
-  <div id="tab-info" class="hidden">
+  <!-- CONTROL OBRAS -->
+  <div id="tab-control" class="hidden">
+    <div class="tarjeta">
+      <div class="seccion-titulo" style="padding:0 0 6px">Resumen de obra</div>
+      <div id="controlResumen"></div>
+    </div>
     <div class="tarjeta">
       <div class="seccion-titulo" style="padding:0 0 6px">Exportar documentación</div>
       <div class="fila" style="flex-wrap:wrap">
@@ -332,6 +361,18 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
     <div class="tarjeta">
       <div class="seccion-titulo" style="padding:0 0 6px">Historial</div>
       <div id="listaHistorial"></div>
+    </div>
+  </div>
+
+  <!-- CALENDARIO -->
+  <div id="tab-calendario" class="hidden">
+    <div class="tarjeta">
+      <div class="cal-header">
+        <button class="cal-nav" id="calPrev">◀</button>
+        <span id="calTitulo" class="cal-titulo"></span>
+        <button class="cal-nav" id="calNext">▶</button>
+      </div>
+      <div id="calGrid" class="cal-grid"></div>
     </div>
   </div>
 </div>

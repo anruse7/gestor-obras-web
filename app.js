@@ -552,7 +552,7 @@ function renderTabs(){
   $id('tabs').querySelectorAll('button').forEach(function(b){
     b.classList.toggle('activa', b.getAttribute('data-tab')===app.tab);
   });
-  ['partidas','fotos','documentos','facturacion','info'].forEach(function(t){
+  ['partidas','fotos','documentos','facturacion','control','calendario'].forEach(function(t){
     $id('tab-'+t).classList.toggle('hidden', t!==app.tab);
   });
 }
@@ -862,6 +862,84 @@ function renderHistorial(){
   $id('listaHistorial').innerHTML = html || '<div style="font-size:13px;color:#9ca3af">Sin movimientos.</div>';
 }
 
+/* ---------------- Control Obras ---------------- */
+function renderControl(){
+  var o = app.obra;
+  var nPartidas = (o.replanteo||[]).length;
+  var nMateriales = (o.materiales||[]).length;
+  var nFotos = app.fotos.length;
+  var nDocs = (o.documentos||[]).length;
+  var tot = totalValoracion(o);
+  var factTot = 0;
+  (o.facturacion||[]).forEach(function(f){ var pr=precioPartida(f.codigo); if(pr) factTot += round2(pr.importe*f.cantidad); });
+  var html = ''
+    + '<div class="ctrl-row"><span class="ctrl-label">LCL</span><span class="ctrl-valor">'+esc(o.lcl||'-')+'</span></div>'
+    + '<div class="ctrl-row"><span class="ctrl-label">Dirección</span><span class="ctrl-valor">'+esc(o.direccion||'-')+'</span></div>'
+    + '<div class="ctrl-row"><span class="ctrl-label">Municipio</span><span class="ctrl-valor">'+esc(o.municipio||'-')+'</span></div>'
+    + '<div class="ctrl-row"><span class="ctrl-label">Estado</span><span class="ctrl-valor"><span class="estado-chip '+claseEstado(o.estado)+'">'+esc(o.estado||'Alta')+'</span></span></div>'
+    + '<div class="ctrl-row"><span class="ctrl-label">Fecha alta</span><span class="ctrl-valor">'+esc(o.fechaAlta||'-')+'</span></div>'
+    + '<div class="ctrl-row"><span class="ctrl-label">Zonas</span><span class="ctrl-valor">'+esc((o.zonaAereo||'')+(o.zonaSubt?' / '+o.zonaSubt:'')||'-')+'</span></div>'
+    + '<div class="ctrl-row"><span class="ctrl-label">Valoración</span><span class="ctrl-valor" style="color:var(--verde)">'+fmtEuro(tot)+'</span></div>'
+    + '<div class="ctrl-row"><span class="ctrl-label">Facturación</span><span class="ctrl-valor">'+fmtEuro(factTot)+'</span></div>'
+    + '<div class="ctrl-row"><span class="ctrl-label">Partidas</span><span class="ctrl-valor">'+nPartidas+'</span></div>'
+    + '<div class="ctrl-row"><span class="ctrl-label">Materiales</span><span class="ctrl-valor">'+nMateriales+'</span></div>'
+    + '<div class="ctrl-row"><span class="ctrl-label">Fotos</span><span class="ctrl-valor">'+nFotos+'</span></div>'
+    + '<div class="ctrl-row"><span class="ctrl-label">Notas</span><span class="ctrl-valor">'+nDocs+'</span></div>'
+    + '<div class="ctrl-row"><span class="ctrl-label">Movimientos</span><span class="ctrl-valor">'+(o.historial||[]).length+'</span></div>';
+  $id('controlResumen').innerHTML = html;
+  renderHistorial();
+}
+
+/* ---------------- Calendario ---------------- */
+var _calYear, _calMonth;
+function initCalendario(){
+  var hoy = new Date();
+  _calYear = hoy.getFullYear();
+  _calMonth = hoy.getMonth();
+}
+function renderCalendario(){
+  if(!_calYear) initCalendario();
+  var meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  $id('calTitulo').textContent = meses[_calMonth]+' '+_calYear;
+  var primerDia = new Date(_calYear, _calMonth, 1).getDay();
+  var diasEnMes = new Date(_calYear, _calMonth+1, 0).getDate();
+  var hoy = new Date();
+  var esHoy = function(d){ return d===hoy.getDate() && _calMonth===hoy.getMonth() && _calYear===hoy.getFullYear(); };
+  // Eventos del historial este mes
+  var eventos = {};
+  (app.obra.historial||[]).forEach(function(x){
+    var parts = x.fecha.split(' ');
+    var dp = (parts[0]||'').split('/');
+    if(dp.length>=3){
+      var dy=parseInt(dp[2],10), dm=parseInt(dp[1],10)-1, dd=parseInt(dp[0],10);
+      if(dm===_calMonth && dy===_calYear){
+        if(!eventos[dd]) eventos[dd]=[];
+        var tipo = 'otro';
+        if(/fase/i.test(x.texto)) tipo='fase';
+        else if(/alta/i.test(x.texto)) tipo='alta';
+        else if(/parada/i.test(x.texto)) tipo='parada';
+        eventos[dd].push({texto:x.texto, tipo:tipo});
+      }
+    }
+  });
+  var cab = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+  var html = cab.map(function(d){ return '<div class="cal-dia-cab">'+d+'</div>'; }).join('');
+  // Días vacíos al inicio (lunes=0)
+  var offset = (primerDia + 6) % 7;
+  for(var e=0;e<offset;e++) html += '<div class="cal-dia vacio"></div>';
+  for(var d=1;d<=diasEnMes;d++){
+    var cls = esHoy(d)?'cal-dia hoy':'cal-dia';
+    var evHtml = '';
+    if(eventos[d]){
+      eventos[d].forEach(function(ev){
+        evHtml += '<div class="cal-ev '+ev.tipo+'" title="'+esc(ev.texto)+'">'+esc(ev.texto)+'</div>';
+      });
+    }
+    html += '<div class="'+cls+'"><div class="cal-num">'+d+'</div>'+evHtml+'</div>';
+  }
+  $id('calGrid').innerHTML = html;
+}
+
 /* ---------------- Exportación: ZIP (xlsx + pdf + fotos) ---------------- */
 function crearWorkbook(o){
   var wb = XLSX.utils.book_new();
@@ -1125,7 +1203,8 @@ async function iniciar(){
     if(app.tab==='partidas') renderPartidas();
     if(app.tab==='facturacion') renderFacturacion();
     if(app.tab==='documentos') renderDocs();
-    if(app.tab==='info') renderHistorial();
+    if(app.tab==='control') renderControl();
+    if(app.tab==='calendario') renderCalendario();
   });
 
   // filtros de búsqueda
@@ -1170,6 +1249,11 @@ async function iniciar(){
     renderPartidas();
     toast(n+' partidas añadidas');
   });
+
+  // calendario navegación
+  $id('calPrev').addEventListener('click', function(){ _calMonth--; if(_calMonth<0){_calMonth=11;_calYear--;} renderCalendario(); });
+  $id('calNext').addEventListener('click', function(){ _calMonth++; if(_calMonth>11){_calMonth=0;_calYear++;} renderCalendario(); });
+  initCalendario();
 
   // fotos
   $id('btnFotoGeneral').addEventListener('click', function(){ pedirFoto('general', null); });
