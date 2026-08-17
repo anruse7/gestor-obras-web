@@ -155,6 +155,16 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
 .obra-val{font-size:13px;margin-top:2px;color:var(--sub);}
 .obra-val b{color:var(--azul);}
 
+/* ---------- quick access cards ---------- */
+.quick-cards{display:flex;gap:10px;padding:12px 12px 0;}
+.quick-card{flex:1;display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--borde);border-radius:12px;padding:14px 12px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:transform .12s,box-shadow .12s;}
+.quick-card:active{transform:scale(.97);box-shadow:0 1px 1px rgba(0,0,0,.08);background:var(--azulclaro);}
+.qc-icon{font-size:26px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:var(--azulclaro);border-radius:10px;flex-shrink:0;}
+.qc-text{flex:1;min-width:0;}
+.qc-title{font-size:14px;font-weight:700;color:var(--azul);}
+.qc-sub{font-size:11px;color:var(--sub);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.qc-arrow{font-size:20px;color:var(--borde);font-weight:700;flex-shrink:0;}
+
 /* ---------- historial ---------- */
 .his-item{border-left:3px solid var(--azul2);padding:6px 10px;margin-bottom:8px;background:#f8fafc;border-radius:0 8px 8px 0;font-size:13px;}
 .his-item .hf{font-size:11px;color:var(--sub);}
@@ -297,10 +307,44 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
 #toast.show{opacity:1;}
 
 /* ---------- modal genérico ---------- */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:90;display:flex;align-items:flex-end;justify-content:center;}
-.overlay .caja{background:#fff;width:100%;max-width:560px;max-height:85vh;overflow:auto;border-radius:14px 14px 0 0;padding:16px;animation:subir .2s;}
-@keyframes subir{from{transform:translateY(20px);opacity:0;}}
-.overlay .caja h3{margin:0 0 10px;font-size:16px;}
+/* ---------- overlay ---------- */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:90;display:flex;align-items:center;justify-content:center;padding:12px;}
+.overlay .caja{background:#fff;width:100%;max-width:440px;max-height:88vh;overflow:auto;border-radius:14px;padding:0;animation:fadeUp .2s;}
+@keyframes fadeUp{from{transform:translateY(16px);opacity:0;}}
+.overlay .caja h3{margin:0 0 0;font-size:16px;padding:16px 16px 10px;border-bottom:1px solid var(--borde);background:var(--azul);color:#fff;border-radius:14px 14px 0 0;position:sticky;top:0;z-index:1;}
+.overlay .caja .ev-body{padding:14px 16px 16px;}
+
+/* ---------- event form ---------- */
+.ev-tipo-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:12px;}
+.ev-tipo-btn{padding:10px 6px;border:2px solid var(--borde);border-radius:10px;background:#fff;text-align:center;cursor:pointer;font-size:12px;transition:border-color .15s,background .15s;}
+.ev-tipo-btn:active,.ev-tipo-btn.sel{border-color:var(--azul2);background:var(--azulclaro);}
+.ev-tipo-btn .ev-tipo-ico{font-size:22px;display:block;margin-bottom:2px;}
+.ev-tipo-btn .ev-tipo-lbl{font-weight:600;color:var(--texto);}
+.ev-field{margin-bottom:10px;}
+.ev-field label{display:block;font-size:12px;color:var(--sub);margin-bottom:3px;font-weight:500;}
+.ev-field input,.ev-field select,.ev-field textarea{width:100%;font-size:14px;padding:8px 10px;border:1px solid var(--borde);border-radius:8px;}
+.ev-field textarea{resize:vertical;}
+.ev-actions{display:flex;gap:8px;margin-top:14px;}
+.ev-actions button{flex:1;padding:10px;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;}
+.ev-actions .ev-cancel{background:var(--gris);color:var(--texto);border:1px solid var(--borde);}
+.ev-actions .ev-save{background:var(--azul2);color:#fff;}
+.ev-actions .ev-save:active{filter:brightness(.9);}
+
+/* ---------- día: planificación ---------- */
+.cal-dia-plan{margin-top:10px;}
+.cal-dia-plan-tit{font-size:13px;font-weight:600;color:var(--azul);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;}
+.cal-worker{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fff;border:1px solid var(--borde);border-radius:8px;margin-bottom:6px;}
+.cal-worker.asig{border-left:3px solid #3b82f6;background:#f0f7ff;}
+.cal-worker.sin-asig{border-left:3px solid #d1d5db;}
+.cal-worker-nom{flex:1;font-size:13px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cal-worker-obra{font-size:11px;color:var(--azul2);margin-left:auto;white-space:nowrap;}
+.cal-worker-btn{font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid var(--borde);background:#fff;cursor:pointer;white-space:nowrap;}
+.cal-worker-btn:active{background:var(--gris);}
+.cal-worker-btn.asig-btn{color:var(--rojo);border-color:var(--rojo);}
+.cal-worker-btn.asig-btn:active{background:#fee2e2;}
+.cal-add-worker{display:flex;gap:6px;margin-top:8px;}
+.cal-add-worker input{flex:1;font-size:13px;padding:6px 8px;border:1px solid var(--borde);border-radius:8px;}
+.cal-add-worker button{padding:6px 12px;border:none;border-radius:8px;background:var(--azul2);color:#fff;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -320,6 +364,18 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
 
 <!-- ================= VISTA LISTA ================= -->
 <div id="vistaLista">
+  <div class="quick-cards">
+    <div class="quick-card" id="qcControl">
+      <div class="qc-icon">📊</div>
+      <div class="qc-text"><div class="qc-title">Control de Obras</div><div class="qc-sub">Resumen, historial y exportar</div></div>
+      <div class="qc-arrow">›</div>
+    </div>
+    <div class="quick-card" id="qcCalendario">
+      <div class="qc-icon">📅</div>
+      <div class="qc-text"><div class="qc-title">Calendario</div><div class="qc-sub">Planificación y asignaciones</div></div>
+      <div class="qc-arrow">›</div>
+    </div>
+  </div>
   <div class="espacio">
     <input type="text" id="buscadorObras" placeholder="🔍 Buscar por LCL, dirección, municipio o correo…">
   </div>

@@ -1065,7 +1065,6 @@ function renderCalGlobalDia(){
   var ds=_fmtDate(new Date(_calG.year,_calG.month,_calG.day));
   var evs=_evsDelRango(ds,ds);
   var html='<div class="cal-dia-header">'+_DIAS_CORTO[_diaSemana(new Date(_calG.year,_calG.month,_calG.day))]+', '+_calG.day+' de '+_MESES[_calG.month]+'</div>';
-  if(!evs.length) html+='<div style="text-align:center;color:var(--sub);padding:30px;font-size:14px">Sin eventos este día.<br>Pulsa <b>+</b> para añadir uno.</div>';
   evs.forEach(function(ev){
     var obraTxt=ev.obraId?'Obra: '+esc(_nombreObra(ev.obraId)):'';
     var fechTxt=ev.fechaFin&&ev.fechaFin!==ev.fechaInicio?ev.fechaInicio+' → '+ev.fechaFin:ev.fechaInicio;
@@ -1077,13 +1076,121 @@ function renderCalGlobalDia(){
       +(ev.descripcion?'<div class="cal-dia-ev-meta">'+esc(ev.descripcion)+'</div>':'')
       +'</div>';
   });
+
+  /* Planificación del día: todos los trabajadores conocidos */
+  var todos=_todosTrabajadores();
+  var planificados=0;
+  if(todos.length){
+    todos.forEach(function(nombre){
+      if(_asignacionEnFecha(nombre,ds)) planificados++;
+    });
+  }
+  html+='<div class="cal-dia-plan"><div class="cal-dia-plan-tit"><span>👷 Planificación del día</span><span style="font-size:11px;color:var(--sub);font-weight:400">'+(todos.length?planificados+'/'+todos.length+' asignados':'Sin trabajadores registrados')+'</span></div>';
+  if(todos.length){
+    todos.forEach(function(nombre){
+      var asig=_asignacionEnFecha(nombre,ds);
+      var obraTxt=asig?esc(_nombreObra(asig.obraId||'')):'';
+      var cls=asig?'cal-worker asig':'cal-worker sin-asig';
+      html+='<div class="'+cls+'">'
+        +'<span class="cal-worker-nom">👷 '+esc(nombre)+'</span>'
+        +(obraTxt?'<span class="cal-worker-obra">'+obraTxt+'</span>':'')
+        +'<button class="cal-worker-btn'+(asig?' asig-btn':'')+'" data-trab="'+esc(nombre)+'" data-fecha="'+ds+'">'
+        +(asig?'Desasignar':'Asignar')+'</button>'
+        +'</div>';
+    });
+    /* refrescar contador */
+  }
+  html+='<div class="cal-add-worker"><input id="calNuevoTrab" placeholder="Nuevo trabajador..."><button id="calAddTrabBtn">＋ Añadir</button></div>';
+  html+='</div>';
+
   $id('calGGrid').innerHTML=html;
+
+  /* borrar evento */
   $id('calGGrid').querySelectorAll('[data-bcal]').forEach(function(btn){
     btn.addEventListener('click',function(e){
       e.stopPropagation();
       if(!confirm('¿Eliminar este evento?'))return;
       _calG.eventos=_calG.eventos.filter(function(ev){return ev.id!==btn.getAttribute('data-bcal');});
       guardarEventosCal().then(function(){renderCalGlobal();toast('Evento eliminado');});
+    });
+  });
+
+  /* asignar / desasignar trabajador */
+  $id('calGGrid').querySelectorAll('.cal-worker-btn[data-trab]').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var nombre=btn.getAttribute('data-trab');
+      var fecha=btn.getAttribute('data-fecha');
+      var asig=_asignacionEnFecha(nombre,fecha);
+      if(asig){
+        if(!confirm('Desasignar a '+nombre+'?'))return;
+        _calG.eventos=_calG.eventos.filter(function(ev){return ev.id!==asig.id;});
+        guardarEventosCal().then(function(){renderCalGlobalDia();toast(nombre+' desasignado');});
+      } else {
+        _evSeleccionado='asignacion';
+        _abrirFormAsignacionRapida(nombre,fecha);
+      }
+    });
+  });
+
+  /* añadir nuevo trabajador */
+  var addBtn=$id('calAddTrabBtn');
+  if(addBtn) addBtn.addEventListener('click',function(){
+    var nom=($id('calNuevoTrab').value||'').trim();
+    if(!nom){toast('Escribe un nombre');return;}
+    _evSeleccionado='asignacion';
+    _abrirFormAsignacionRapida(nom,ds);
+  });
+}
+
+function _todosTrabajadores(){
+  var set={};
+  _calG.eventos.forEach(function(ev){
+    if(ev.titulo) set[ev.titulo.toLowerCase()]=ev.titulo;
+  });
+  return Object.values(set).sort(function(a,b){return a<b?-1:1;});
+}
+function _asignacionEnFecha(nombre,fecha){
+  var nl=nombre.toLowerCase();
+  for(var i=0;i<_calG.eventos.length;i++){
+    var ev=_calG.eventos[i];
+    if(ev.tipo==='asignacion'&&ev.titulo&&ev.titulo.toLowerCase()===nl){
+      var ff=ev.fechaFin||ev.fechaInicio;
+      if(ev.fechaInicio<=fecha&&ff>=fecha) return ev;
+    }
+  }
+  return null;
+}
+function _abrirFormAsignacionRapida(nombre,fecha){
+  var ov=$id('overlay');
+  var obrasOpts='<option value="">— ninguna —</option>';
+  app.obras.forEach(function(o){obrasOpts+='<option value="'+esc(o.id)+'">'+esc(o.lcl||o.id)+' — '+esc(o.municipio||'')+'</option>';});
+  ov.innerHTML='<div class="overlay" style="position:static"><div class="caja">'
+    +'<h3>Asignar trabajador</h3>'
+    +'<div class="ev-body">'
+    +'<div class="ev-field"><label>Trabajador</label><input id="evTitulo" value="'+esc(nombre)+'"></div>'
+    +'<div class="ev-field"><label>Obra</label><select id="evObra">'+obrasOpts+'</select></div>'
+    +'<div class="fila"><div class="ev-field"><label>Desde</label><input type="date" id="evFechaInicio" value="'+fecha+'"></div>'
+    +'<div class="ev-field"><label>Hasta</label><input type="date" id="evFechaFin" value="'+fecha+'"></div></div>'
+    +'<div class="ev-field"><label>Descripción</label><textarea id="evDesc" rows="1" placeholder="Notas..."></textarea></div>'
+    +'<div class="ev-actions"><button class="ev-cancel" id="evCancelar">Cancelar</button><button class="ev-save" id="evGuardar">Asignar</button></div>'
+    +'</div></div>';
+  ov.classList.remove('hidden');
+  $id('evCancelar').addEventListener('click',function(){ov.classList.add('hidden');});
+  $id('evGuardar').addEventListener('click',function(){
+    var titulo=($id('evTitulo').value||'').trim();
+    if(!titulo){toast('Escribe un nombre');return;}
+    var ev={
+      id:uid(),tipo:'asignacion',titulo:titulo,
+      obraId:$id('evObra').value||'',
+      fechaInicio:$id('evFechaInicio').value,
+      fechaFin:$id('evFechaFin').value||$id('evFechaInicio').value,
+      descripcion:($id('evDesc').value||'').trim()
+    };
+    _calG.eventos.push(ev);
+    guardarEventosCal().then(function(){
+      ov.classList.add('hidden');
+      renderCalGlobalDia();
+      toast(titulo+' asignado');
     });
   });
 }
@@ -1168,39 +1275,51 @@ function renderPermisos(){
 }
 
 /* ---------------- Formulario evento ---------------- */
+var _evTipos=[
+  {val:'asignacion',ico:'👷',lbl:'Asignación'},
+  {val:'vacaciones',ico:'🏖',lbl:'Vacaciones'},
+  {val:'descargo',ico:'📋',lbl:'Descargo'},
+  {val:'permiso',ico:'📝',lbl:'Permiso'},
+  {val:'evento',ico:'📌',lbl:'Evento'}
+];
+var _evSeleccionado='asignacion';
 function abrirFormEvento(){
   var ov=$id('overlay');
-  var opts='<option value="asignacion">👷 Asignación a obra</option>'
-    +'<option value="vacaciones">🏖 Vacaciones</option>'
-    +'<option value="descargo">📋 Descargo</option>'
-    +'<option value="permiso">📝 Permiso</option>'
-    +'<option value="evento">📌 Evento</option>';
   var obrasOpts='<option value="">— ninguna —</option>';
   app.obras.forEach(function(o){obrasOpts+='<option value="'+esc(o.id)+'">'+esc(o.lcl||o.id)+' — '+esc(o.municipio||'')+'</option>';});
   var hoy=_fmtDate(new Date(_calG.year,_calG.month,_calG.day));
-  ov.innerHTML='<div class="overlay" style="position:static"><div class="caja ev-form">'
+  _evSeleccionado='asignacion';
+  var tipoHtml=_evTipos.map(function(t){
+    return '<div class="ev-tipo-btn'+(t.val==='asignacion'?' sel':'')+'" data-tipo="'+t.val+'">'
+      +'<span class="ev-tipo-ico">'+t.ico+'</span><span class="ev-tipo-lbl">'+t.lbl+'</span></div>';
+  }).join('');
+  ov.innerHTML='<div class="overlay" style="position:static"><div class="caja">'
     +'<h3>Nuevo evento</h3>'
-    +'<label>Tipo</label><select id="evTipo">'+opts+'</select>'
-    +'<label id="lblTrab">Trabajador</label><input id="evTitulo" placeholder="Nombre del trabajador...">'
-    +'<div id="evObraWrap"><label>Obra</label><select id="evObra">'+obrasOpts+'</select></div>'
-    +'<label>Fecha inicio</label><input type="date" id="evFechaInicio" value="'+hoy+'">'
-    +'<label>Fecha fin</label><input type="date" id="evFechaFin" value="'+hoy+'">'
-    +'<label>Descripción</label><textarea id="evDesc" rows="2" placeholder="Notas..."></textarea>'
-    +'<div class="fila" style="margin-top:14px"><button class="boton gris" id="evCancelar">Cancelar</button><button class="boton" id="evGuardar">Guardar</button></div>'
+    +'<div class="ev-body">'
+    +'<div class="ev-tipo-grid" id="evTipoGrid">'+tipoHtml+'</div>'
+    +'<div class="ev-field"><label>Trabajador / título</label><input id="evTitulo" placeholder="Nombre del trabajador..."></div>'
+    +'<div class="ev-field" id="evObraWrap"><label>Obra</label><select id="evObra">'+obrasOpts+'</select></div>'
+    +'<div class="fila"><div class="ev-field"><label>Desde</label><input type="date" id="evFechaInicio" value="'+hoy+'"></div>'
+    +'<div class="ev-field"><label>Hasta</label><input type="date" id="evFechaFin" value="'+hoy+'"></div></div>'
+    +'<div class="ev-field"><label>Descripción</label><textarea id="evDesc" rows="2" placeholder="Notas..."></textarea></div>'
+    +'<div class="ev-actions"><button class="ev-cancel" id="evCancelar">Cancelar</button><button class="ev-save" id="evGuardar">Guardar</button></div>'
     +'</div></div>';
   ov.classList.remove('hidden');
-  function _toggleObra(){
-    var v=$id('evTipo').value;
-    $id('evObraWrap').style.display=v==='asignacion'?'block':'none';
-  }
-  $id('evTipo').addEventListener('change',_toggleObra);
+  function _toggleObra(){ $id('evObraWrap').style.display=_evSeleccionado==='asignacion'?'block':'none'; }
+  $id('evTipoGrid').addEventListener('click',function(e){
+    var btn=e.target.closest('[data-tipo]');if(!btn)return;
+    _evSeleccionado=btn.getAttribute('data-tipo');
+    $id('evTipoGrid').querySelectorAll('.ev-tipo-btn').forEach(function(b){b.classList.remove('sel');});
+    btn.classList.add('sel');
+    _toggleObra();
+  });
   _toggleObra();
   $id('evCancelar').addEventListener('click',function(){ov.classList.add('hidden');});
   $id('evGuardar').addEventListener('click',function(){
     var titulo=($id('evTitulo').value||'').trim();
     if(!titulo){toast('Escribe un nombre');return;}
     var ev={
-      id:uid(),tipo:$id('evTipo').value,titulo:titulo,
+      id:uid(),tipo:_evSeleccionado,titulo:titulo,
       obraId:$id('evObra').value||'',
       fechaInicio:$id('evFechaInicio').value,
       fechaFin:$id('evFechaFin').value||$id('evFechaInicio').value,
@@ -1543,6 +1662,8 @@ async function iniciar(){
   await cargarEventosCal();
   renderCalGlobalInit();
   $id('btnCalendario').addEventListener('click', function(){ abrirCalendario(); });
+  $id('qcControl').addEventListener('click', function(){ abrirCalendario(); _calG.section='asignaciones'; renderCalSection(); });
+  $id('qcCalendario').addEventListener('click', function(){ abrirCalendario(); _calG.section='calendario'; renderCalSection(); });
   $id('calSidebar').addEventListener('click', function(e){
     var item=e.target.closest('[data-section]');
     if(!item)return;
