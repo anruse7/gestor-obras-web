@@ -998,7 +998,7 @@ function cerrarCalendario(){
 }
 
 function renderCalSection(){
-  ['calendario','asignaciones','permisos'].forEach(function(s){
+  ['calendario','trabajadores','asignaciones','permisos'].forEach(function(s){
     var el = $id('sec'+s.charAt(0).toUpperCase()+s.slice(1));
     if(el) el.classList.toggle('activo', s===_calG.section);
   });
@@ -1006,8 +1006,53 @@ function renderCalSection(){
     n.classList.toggle('activo', n.getAttribute('data-section')===_calG.section);
   });
   if(_calG.section==='calendario') renderCalGlobal();
+  else if(_calG.section==='trabajadores') renderTrabajadores();
   else if(_calG.section==='asignaciones') renderAsignaciones();
   else renderPermisos();
+}
+
+/* ---------------- Trabajadores (gestión) ---------------- */
+function renderTrabajadores(){
+  var el=$id('listaTrabajadores');
+  var hoy=_fmtDate(new Date());
+  if(!_trabajadores.length){
+    el.innerHTML='<div class="trab-vacio">No hay trabajadores todavía.<br>Escribe un nombre arriba y pulsa <b>＋ Añadir</b>.</div>';
+    return;
+  }
+  var html='';
+  _trabajadores.forEach(function(t){
+    var asig=_asignacionEnFecha(t.nombre,hoy);
+    var estado=asig?esc(_nombreObra(asig.obraId||'')):'Libre';
+    var cls=asig?'trab-activo':'trab-libre';
+    html+='<div class="trab-item" data-trab-id="'+t.id+'">'
+      +'<span class="trab-item-nom">👷 '+esc(t.nombre)+'</span>'
+      +'<span class="'+cls+'">'+estado+'</span>'
+      +'<div class="trab-item-actions">'
+      +'<button class="trab-asig-btn" data-asig="'+esc(t.nombre)+'">Asignar</button>'
+      +'<button class="trab-borrar-btn" data-borrar-trab="'+esc(t.nombre)+'">✕</button>'
+      +'</div></div>';
+  });
+  el.innerHTML=html;
+
+  /* Asignar */
+  el.querySelectorAll('[data-asig]').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var nombre=btn.getAttribute('data-asig');
+      var ds=_fmtDate(new Date(_calG.year,_calG.month,_calG.day));
+      _abrirFormAsignacionRapida(nombre,ds);
+    });
+  });
+
+  /* Borrar */
+  el.querySelectorAll('[data-borrar-trab]').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var nombre=btn.getAttribute('data-borrar-trab');
+      if(!confirm('¿Eliminar a '+nombre+'?\nSe mantendrán los eventos existentes.'))return;
+      borrarTrabajador(nombre);
+      renderTrabajadores();
+      toast(nombre+' eliminado');
+    });
+  });
 }
 
 function renderCalGlobal(){
@@ -1690,7 +1735,7 @@ async function iniciar(){
   await cargarTrabajadores();
   renderCalGlobalInit();
   $id('btnCalendario').addEventListener('click', function(){ abrirCalendario(); });
-  $id('qcControl').addEventListener('click', function(){ abrirCalendario(); _calG.section='asignaciones'; renderCalSection(); });
+  $id('qcControl').addEventListener('click', function(){ abrirCalendario(); _calG.section='trabajadores'; renderCalSection(); });
   $id('qcCalendario').addEventListener('click', function(){ abrirCalendario(); _calG.section='calendario'; renderCalSection(); });
   $id('calSidebar').addEventListener('click', function(e){
     var item=e.target.closest('[data-section]');
@@ -1718,6 +1763,25 @@ async function iniciar(){
   });
   $id('btnAddEvento').addEventListener('click', function(){ abrirFormEvento(); });
   $id('filtroPD').addEventListener('change', function(){ renderPermisos(); });
+
+  /* Trabajadores section: add button */
+  $id('trabAddBtn').addEventListener('click', function(){
+    var nom=($id('trabNuevo').value||'').trim();
+    if(!nom){toast('Escribe un nombre');return;}
+    if(registrarTrabajador(nom)){
+      $id('trabNuevo').value='';
+      renderTrabajadores();
+      toast(nom+' registrado');
+    } else {
+      toast('Ya existe ese trabajador');
+    }
+  });
+  $id('trabNuevo').addEventListener('keydown', function(e){
+    if(e.key==='Enter'){
+      e.preventDefault();
+      $id('trabAddBtn').click();
+    }
+  });
 
   // fotos
   $id('btnFotoGeneral').addEventListener('click', function(){ pedirFoto('general', null); });

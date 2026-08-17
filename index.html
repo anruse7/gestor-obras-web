@@ -346,6 +346,26 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
 .cal-add-row input{flex:1;font-size:13px;padding:6px 8px;border:1px solid var(--borde);border-radius:8px;}
 .cal-add-row button{width:36px;height:36px;border:none;border-radius:8px;background:var(--azul2);color:#fff;font-size:18px;font-weight:700;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
 .cal-add-row button:active{filter:brightness(.9);}
+
+/* ---------- trabajadores section ---------- */
+.trab-add-row{display:flex;gap:6px;margin-bottom:12px;}
+.trab-add-row input{flex:1;font-size:14px;padding:8px 10px;border:1px solid var(--borde);border-radius:8px;}
+.trab-add-row button{padding:8px 14px;border:none;border-radius:8px;background:var(--azul2);color:#fff;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.trab-add-row button:active{filter:brightness(.9);}
+.trab-item{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--borde);border-radius:10px;padding:10px 12px;margin-bottom:8px;}
+.trab-item:active{background:#f8fafc;}
+.trab-item-nom{flex:1;font-size:14px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.trab-item-info{font-size:11px;color:var(--sub);margin-left:auto;white-space:nowrap;}
+.trab-item-actions{display:flex;gap:4px;flex-shrink:0;}
+.trab-item-actions button{font-size:12px;padding:5px 10px;border-radius:6px;border:1px solid var(--borde);background:#fff;cursor:pointer;white-space:nowrap;}
+.trab-item-actions button:active{background:var(--gris);}
+.trab-item-actions .trab-asig-btn{background:var(--azul2);color:#fff;border-color:var(--azul2);}
+.trab-item-actions .trab-asig-btn:active{filter:brightness(.9);}
+.trab-item-actions .trab-borrar-btn{color:var(--rojo);border-color:var(--rojo);}
+.trab-item-actions .trab-borrar-btn:active{background:#fee2e2;}
+.trab-vacio{text-align:center;color:var(--sub);padding:30px;font-size:14px;}
+.trab-activo{font-size:12px;color:var(--verde);font-weight:600;white-space:nowrap;}
+.trab-libre{font-size:12px;color:#9ca3af;white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -368,7 +388,7 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
   <div class="quick-cards">
     <div class="quick-card" id="qcControl">
       <div class="qc-icon">📊</div>
-      <div class="qc-text"><div class="qc-title">Control de Obras</div><div class="qc-sub">Resumen, historial y exportar</div></div>
+      <div class="qc-text"><div class="qc-title">Trabajadores</div><div class="qc-sub">Crear, asignar y gestionar</div></div>
       <div class="qc-arrow">›</div>
     </div>
     <div class="quick-card" id="qcCalendario">
@@ -545,7 +565,9 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
   <div class="cal-sidebar" id="calSidebar">
     <div class="cal-nav-item activo" data-section="calendario"><span class="icon">📅</span><span class="nav-label">Calendario</span></div>
     <div class="cal-sidebar-sep"></div>
-    <div class="cal-nav-item" data-section="asignaciones"><span class="icon">👷</span><span class="nav-label">Asignaciones</span></div>
+    <div class="cal-nav-item" data-section="trabajadores"><span class="icon">👷</span><span class="nav-label">Trabajadores</span></div>
+    <div class="cal-sidebar-sep"></div>
+    <div class="cal-nav-item" data-section="asignaciones"><span class="icon">📌</span><span class="nav-label">Asignaciones</span></div>
     <div class="cal-sidebar-sep"></div>
     <div class="cal-nav-item" data-section="permisos"><span class="icon">📋</span><span class="nav-label">Permisos</span></div>
   </div>
@@ -570,6 +592,15 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
         <span class="l-ev">Evento</span>
       </div>
       <div id="calGGrid"></div>
+    </div>
+
+    <!-- SECCIÓN TRABAJADORES -->
+    <div class="cal-section" id="secTrabajadores">
+      <div class="cal-sec-header">
+        <span class="cal-titulo">👷 Trabajadores</span>
+      </div>
+      <div class="trab-add-row"><input id="trabNuevo" placeholder="Nombre del trabajador..."><button id="trabAddBtn">＋ Añadir</button></div>
+      <div id="listaTrabajadores"></div>
     </div>
 
     <!-- SECCIÓN ASIGNACIONES -->
