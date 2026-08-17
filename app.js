@@ -113,11 +113,11 @@ function datosPartida(codigo){
 /* ---------------- Almacenamiento: Supabase + IndexedDB ---------------- */
 var STORAGE = (function(){
   var MEM = new Map();
-  var backend = null; // 'supabase' | 'idb'
-  var cloudFail = false; // la nube rechazó una escritura (permisos/RLS)
-  var cloudFailMsg = ''; // último motivo de fallo de nube (para el aviso)
+  var backend = null;
   var idbPromise = null;
   var S = { url:(window.CONFIG&&window.CONFIG.supabaseUrl)||'', key:(window.CONFIG&&window.CONFIG.supabaseAnonKey)||'', table:(window.CONFIG&&window.CONFIG.supabaseTable)||'kv' };
+  var _retryQ = [];
+  var _retryTimer = null;
 
   function idbOpen(){
     if(idbPromise) return idbPromise;
@@ -140,26 +140,47 @@ var STORAGE = (function(){
     if(prefer) h.Prefer = prefer;
     var url = S.url+'/rest/v1/'+S.table+qs;
     var opts = { method:method, headers:h, body:body?JSON.stringify(body):undefined };
-    // Reintentos ante fallos transitorios de red (los POST son idempotentes: upsert por clave)
-    var intentos = 3;
-    function intento(n){
-      return fetch(url, opts).then(function(r){
-        diag('sb '+method+' '+qs.split('&')[0]+' → HTTP '+r.status);
-        if(!r.ok && r.status!==204) return r.text().then(function(t){ throw new Error('Supabase '+r.status+': '+t); });
-        if(method==='GET') return r.text().then(function(t){ return t?JSON.parse(t):null; });
-        return null;
-      }).catch(function(e){
-        diag('sb '+method+' '+(n===intentos?'FALLO definitivo ':'reintento ')+n+' → '+((e&&e.name)||'')+': '+((e&&e.message)||e).slice(0,140));
-        if(n < intentos) return new Promise(function(res){ setTimeout(res, 400*n); }).then(function(){ return intento(n+1); });
-        throw e;
-      });
-    }
-    return intento(1);
+    return fetch(url, opts).then(function(r){
+      if(!r.ok && r.status!==204) return r.text().then(function(t){ throw new Error('Supabase '+r.status+': '+t); });
+      if(method==='GET') return r.text().then(function(t){ return t?JSON.parse(t):null; });
+      return null;
+    });
   }
   var sbGet = function(key){ return sbReq('GET','?select=value&key=eq.'+encodeURIComponent(key)).then(function(a){ return a&&a[0]&&a[0].value!==undefined?a[0].value:null; }); };
   var sbSet = function(key,val){ return sbReq('POST','',[{key:key,value:val}],'resolution=merge-duplicates,return=minimal'); };
   var sbDel = function(key){ return sbReq('DELETE','?key=eq.'+encodeURIComponent(key)); };
   var sbList = function(){ return sbReq('GET','?select=key,value&limit=10000'); };
+
+  function _actualizarDot(){
+    var dot = $id('dotSync'), txt = $id('txtSync');
+    if(!dot || !txt) return;
+    if(!navigator.onLine){ dot.className='dot off'; txt.textContent='Sin conexión'; }
+    else if(_retryQ.length){ dot.className='dot sync'; txt.textContent='Sincronizando…'; }
+    else if(backend==='supabase'){ dot.className='dot'; txt.textContent='Nube'; }
+    else { dot.className='dot'; txt.textContent='Local'; }
+  }
+
+  function _colaNube(key, val, method){
+    _retryQ.push({key:key, val:val, method:method, attempts:0});
+    _actualizarDot();
+    if(!_retryTimer) _iniciarRetry();
+  }
+
+  function _iniciarRetry(){
+    _retryTimer = setInterval(function(){
+      if(!_retryQ.length){ clearInterval(_retryTimer); _retryTimer=null; _actualizarDot(); return; }
+      var item = _retryQ[0];
+      var op = item.method==='set' ? sbSet(item.key, item.val) : sbDel(item.key);
+      op.then(function(){
+        _retryQ.shift();
+        _actualizarDot();
+      }, function(e){
+        item.attempts++;
+        if(item.attempts >= 20){ _retryQ.shift(); }
+        _actualizarDot();
+      });
+    }, 3000);
+  }
 
   function init(){
     function cargarIdb(){
@@ -172,27 +193,25 @@ var STORAGE = (function(){
       function desdeIdb(){
         backend='idb';
         diag('init → modo LOCAL (nube no disponible)');
+        _actualizarDot();
         cargarIdb().then(function(){ resolve('idb'); }, function(){ resolve('idb'); });
       }
       if(!usarSupabase){ desdeIdb(); return; }
       backend='supabase';
-      // Primero se carga la copia local (IndexedDB): así la lista nunca aparece vacía
-      // aunque la nube esté vacía o rechace las escrituras.
       cargarIdb().then(function(){
         return sbList();
       }).then(function(rows){
         rows = rows||[];
         diag('init → sbList rows='+rows.length+' → modo NUBE');
         if(rows.length){
-          // La nube solo pisa lo local si trae datos; si está vacía se conserva lo local.
           rows.forEach(function(r){
             MEM.set(r.key, r.value);
             idbSet(r.key, r.value).catch(function(){});
           });
         }
+        _actualizarDot();
         resolve('supabase');
       }, function(e){
-        // nube no disponible (sin tabla, sin red...): espejo local
         diag('init → sbList FALLO: '+String((e&&e.message)||e).slice(0,140));
         STORAGE.supabaseError = e;
         desdeIdb();
@@ -203,24 +222,30 @@ var STORAGE = (function(){
   return {
     init: init,
     backend: function(){ return backend; },
-    cloudFail: function(){ return cloudFail; },
-    cloudError: function(){ return cloudFailMsg; },
+    pendingSync: function(){ return _retryQ.length; },
+    flushSync: function(){ _retryQ.forEach(function(item){ item.attempts = 0; }); if(_retryQ.length && !_retryTimer) _iniciarRetry(); },
     get: function(key){ return Promise.resolve(MEM.has(key)?MEM.get(key):null); },
     set: function(key,val){
       MEM.set(key,val);
-      diag('guardar '+key+' → idb'+(backend==='supabase'?' + nube':' (local, nube no activa)'));
-      var idbp = idbSet(key,val).catch(function(){});
-      if(backend==='supabase') return idbp.then(function(){
-        return sbSet(key,val).then(function(){ if(cloudFail) cloudFail=false; }, function(e){ cloudFail=true; cloudFailMsg=String((e&&e.message)||e).slice(0,160); diag('guardar '+key+' → NUBE FALLO: '+cloudFailMsg); });
-      });
-      return idbp;
+      idbSet(key,val).catch(function(){});
+      if(backend==='supabase'){
+        sbSet(key,val).then(function(){}, function(e){
+          diag('nube fallo set '+key+': '+String((e&&e.message)||e).slice(0,100));
+          _colaNube(key, val, 'set');
+        });
+      }
+      return Promise.resolve();
     },
     remove: function(key){
       MEM.delete(key);
-      diag('borrar '+key+' → idb'+(backend==='supabase'?' + nube':' (local, nube no activa)'));
-      var idbp = idbDel(key).catch(function(){});
-      if(backend==='supabase') return idbp.then(function(){ return sbDel(key).catch(function(){}); });
-      return idbp;
+      idbDel(key).catch(function(){});
+      if(backend==='supabase'){
+        sbDel(key).then(function(){}, function(e){
+          diag('nube fallo del '+key+': '+String((e&&e.message)||e).slice(0,100));
+          _colaNube(key, null, 'del');
+        });
+      }
+      return Promise.resolve();
     },
     keys: function(prefix){ return Promise.resolve(Array.from(MEM.keys()).filter(function(k){ return !prefix||k.indexOf(prefix)===0; })); }
   };
@@ -242,20 +267,7 @@ var app = {
 function indiceResumen(o){
   return { id:o.id, lcl:o.lcl, direccion:o.direccion, municipio:o.municipio, estado:o.estado, fechaAlta:o.fechaAlta, correo:o.correo, valoracion:totalValoracion(o) };
 }
-function avisarNube(){
-  if(!STORAGE.cloudFail || !window.CONFIG || !window.CONFIG.supabaseUrl) return;
-  if(app._restoring) return;
-  var b = $id('setupBanner');
-  if(!b || b._avisadoNube) return;
-  b._avisadoNube = true;
-  b.innerHTML = '⚠ La nube no confirmó el guardado (se reintentó). Tus datos están seguros en este dispositivo; se está <b>recargando para sincronizar</b>…';
-  b.classList.remove('hidden');
-  actualizarIndicador('setup');
-  // Guardar la posición actual en la URL para restaurarla tras la recarga
-  if(app.obra && app.obra.id) location.hash = 'o='+app.obra.id+'&t='+app.tab;
-  setTimeout(function(){ location.reload(); }, 2500);
-}
-async function guardarLista(){ await STORAGE.set('index', app.obras); avisarNube(); }
+async function guardarLista(){ await STORAGE.set('index', app.obras); }
 async function guardarObra(){
   await STORAGE.set('obra:'+app.obra.id, app.obra);
   for(var i=0;i<app.obras.length;i++){ if(app.obras[i].id===app.obra.id){ app.obras[i]=indiceResumen(app.obra); break; } }
@@ -970,8 +982,7 @@ async function compartirZip(){
 
 /* ---------------- Inicio ---------------- */
 function actualizarIndicador(b){
-  $id('txtSync').textContent = b==='supabase'?'Nube':(b==='idb'?'Local':(b==='setup'?'Config':'-'));
-  $id('dotSync').className = 'dot'+(b==='supabase'?'':(b==='idb'?' off':(b==='sync'?' sync':'')));
+  if(b==='setup'){ $id('txtSync').textContent='Config'; $id('dotSync').className='dot sync'; }
 }
 
 async function iniciar(){
@@ -980,8 +991,6 @@ async function iniciar(){
   if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
   var b = await STORAGE.init();
   app.obras = await STORAGE.get('index') || [];
-  if(b==='supabase') actualizarIndicador('supabase');
-  else actualizarIndicador('idb');
   // banner de setup si falla la nube
   if(window.CONFIG && window.CONFIG.supabaseUrl && b==='idb'){
     var esTablaFalta = STORAGE.supabaseError && /PGRST205/i.test(String(STORAGE.supabaseError && STORAGE.supabaseError.message || STORAGE.supabaseError));
@@ -1008,25 +1017,9 @@ async function iniciar(){
 
   // Registro de diagnóstico disponible en consola: window.__DIAG
 
-  // Restaurar la posición tras una recarga automática (#o=obraId&t=tab)
-  if(location.hash.indexOf('#o=')===0){
-    var _p = location.hash.slice(1).split('&');
-    var _oid = (_p[0]||'').slice(2);
-    var _tab = (_p[1]||'').slice(2) || 'partidas';
-    if(_oid){
-      app.tab = _tab;
-      app._restoring = true;
-      cargarObra(_oid).then(function(ok){
-        if(ok) abrirDetalle();
-        app._restoring = false;
-      });
-    }
-    history.replaceState(null,'',location.pathname+location.search);
-  }
-
   // eventos globales
-  window.addEventListener('online', function(){ app.online=true; actualizarIndicador(STORAGE.backend()==='supabase'?'supabase':'idb'); });
-  window.addEventListener('offline', function(){ app.online=false; actualizarIndicador('idb'); });
+  window.addEventListener('online', function(){ app.online=true; STORAGE.flushSync(); });
+  window.addEventListener('offline', function(){ app.online=false; });
 
   $id('buscadorObras').addEventListener('input', renderLista);
   $id('btnNuevaObra').addEventListener('click', abrirAlta);
