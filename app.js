@@ -1003,6 +1003,9 @@ async function iniciar(){
   renderLista();
   llenarTemplates();
 
+  // Mostrar versión
+  if(window.CONFIG && CONFIG.appVersion){ var ev=$id('appVersion'); if(ev) ev.textContent='v'+CONFIG.appVersion; }
+
   // Registro de diagnóstico disponible en consola: window.__DIAG
 
   // Restaurar la posición tras una recarga automática (#o=obraId&t=tab)
