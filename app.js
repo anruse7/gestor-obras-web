@@ -941,12 +941,21 @@ function renderCalendario(){
 }
 
 /* ---------------- Calendario Global ---------------- */
-var _calG = { year:new Date().getFullYear(), month:new Date().getMonth(), day:new Date().getDate(), view:'month', eventos:[] };
+var _calG = { year:new Date().getFullYear(), month:new Date().getMonth(), day:new Date().getDate(), view:'month', section:'calendario', eventos:[] };
 var _MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 var _DIAS_CORTO = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 function _evKey(){ return 'calendario'; }
 async function cargarEventosCal(){ _calG.eventos = await STORAGE.get(_evKey()) || []; }
 async function guardarEventosCal(){ await STORAGE.set(_evKey(), _calG.eventos); }
+function _fmtDate(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function _diaSemana(d){ return (d.getDay()+6)%7; }
+function _esHoy(y,m,d){ var h=new Date(); return d===h.getDate()&&m===h.getMonth()&&y===h.getFullYear(); }
+function _evEnRango(ev,desde,hasta){ var fi=ev.fechaInicio,ff=ev.fechaFin||ev.fechaInicio; return fi<=hasta&&ff>=desde; }
+function _evsDelRango(desde,hasta){ return _calG.eventos.filter(function(ev){ return _evEnRango(ev,desde,hasta); }); }
+function _nombreObra(id){ for(var i=0;i<app.obras.length;i++){ if(app.obras[i].id===id) return app.obras[i].lcl||app.obras[i].id; } return ''; }
+function _tipoLbl(t){ return t==='asignacion'?'Asignación':t==='vacaciones'?'Vacaciones':t==='descargo'?'Descargo':t==='permiso'?'Permiso':'Evento'; }
+function _tipoCls(t){ return t==='asignacion'?'asig':t==='vacaciones'?'vac':t==='descargo'?'desc':t==='permiso'?'perm':'ev'; }
+function _evTipoClass(t){ return t==='asignacion'?'asignacion':t==='vacaciones'?'vacaciones':t==='descargo'?'descargo':t==='permiso'?'permiso':'evento'; }
 
 function abrirCalendario(){
   app.vista='calendario';
@@ -956,8 +965,8 @@ function abrirCalendario(){
   $id('vistaCalendario').classList.remove('hidden');
   $id('btnVolver').classList.remove('hidden');
   $id('btnNuevaObra').classList.add('hidden');
-  $id('tituloCab').textContent='Calendario';
-  renderCalGlobal();
+  $id('tituloCab').textContent='Panel de control';
+  renderCalSection();
 }
 function cerrarCalendario(){
   $id('vistaCalendario').classList.add('hidden');
@@ -969,6 +978,19 @@ function cerrarCalendario(){
   renderLista();
 }
 
+function renderCalSection(){
+  ['calendario','asignaciones','permisos'].forEach(function(s){
+    var el = $id('sec'+s.charAt(0).toUpperCase()+s.slice(1));
+    if(el) el.classList.toggle('activo', s===_calG.section);
+  });
+  $id('calSidebar').querySelectorAll('.cal-nav-item').forEach(function(n){
+    n.classList.toggle('activo', n.getAttribute('data-section')===_calG.section);
+  });
+  if(_calG.section==='calendario') renderCalGlobal();
+  else if(_calG.section==='asignaciones') renderAsignaciones();
+  else renderPermisos();
+}
+
 function renderCalGlobal(){
   if(_calG.view==='month') renderCalGlobalMes();
   else if(_calG.view==='week') renderCalGlobalSemana();
@@ -977,174 +999,228 @@ function renderCalGlobal(){
 function _calGTituloStr(){
   if(_calG.view==='day') return _calG.day+' de '+_MESES[_calG.month]+' '+_calG.year;
   if(_calG.view==='week'){
-    var lunes = new Date(_calG.year, _calG.month, _calG.day);
-    lunes.setDate(lunes.getDate() - ((lunes.getDay()+6)%7));
-    var dom = new Date(lunes); dom.setDate(dom.getDate()+6);
+    var lunes=new Date(_calG.year,_calG.month,_calG.day);
+    lunes.setDate(lunes.getDate()-_diaSemana(lunes));
+    var dom=new Date(lunes); dom.setDate(dom.getDate()+6);
     return lunes.getDate()+'-'+dom.getDate()+' '+_MESES[_calG.month]+' '+_calG.year;
   }
   return _MESES[_calG.month]+' '+_calG.year;
 }
-function _evEnRango(ev, desde, hasta){
-  var fi = ev.fechaInicio, ff = ev.fechaFin || ev.fechaInicio;
-  return fi <= hasta && ff >= desde;
-}
-function _evsDelRango(desde, hasta){
-  return _calG.eventos.filter(function(ev){ return _evEnRango(ev, desde, hasta); });
-}
-function _fmtDate(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-function _diaSemana(d){ return (d.getDay()+6)%7; }
-function _esHoy(y,m,d){ var h=new Date(); return d===h.getDate()&&m===h.getMonth()&&y===h.getFullYear(); }
 
 function renderCalGlobalMes(){
-  $id('calGTitulo').textContent = _calGTituloStr();
-  var primer = new Date(_calG.year, _calG.month, 1);
-  var diasMes = new Date(_calG.year, _calG.month+1, 0).getDate();
-  var offset = _diaSemana(primer);
-  var html = _DIAS_CORTO.map(function(d){ return '<div class="cal-mes-cab">'+d+'</div>'; }).join('');
-  for(var e=0;e<offset;e++) html += '<div class="cal-mes-dia vacio"></div>';
+  $id('calGTitulo').textContent=_calGTituloStr();
+  var primer=new Date(_calG.year,_calG.month,1);
+  var diasMes=new Date(_calG.year,_calG.month+1,0).getDate();
+  var offset=_diaSemana(primer);
+  var html=_DIAS_CORTO.map(function(d){return '<div class="cal-mes-cab">'+d+'</div>';}).join('');
+  for(var e=0;e<offset;e++) html+='<div class="cal-mes-dia vacio"></div>';
   for(var d=1;d<=diasMes;d++){
-    var ds = _fmtDate(new Date(_calG.year, _calG.month, d));
-    var de = ds;
-    var cls = _esHoy(_calG.year,_calG.month,d)?'cal-mes-dia hoy':'cal-mes-dia';
-    var evs = _evsDelRango(ds, de);
-    var evHtml = '';
+    var ds=_fmtDate(new Date(_calG.year,_calG.month,d));
+    var cls=_esHoy(_calG.year,_calG.month,d)?'cal-mes-dia hoy':'cal-mes-dia';
+    var evs=_evsDelRango(ds,ds);
+    var evHtml='';
     evs.forEach(function(ev){
-      var tipo = ev.tipo==='asignacion'?'asignacion':(ev.tipo==='vacaciones'?'vacaciones':'evento');
-      var lbl = ev.tipo==='asignacion'?'👤 ':'';
-      evHtml += '<div class="cal-mes-ev '+tipo+'" title="'+esc(ev.titulo)+'">'+lbl+esc(ev.titulo)+'</div>';
+      var tc=_evTipoClass(ev.tipo);
+      var lbl=ev.tipo==='asignacion'?'👤 ':'';
+      evHtml+='<div class="cal-mes-ev '+tc+'" title="'+esc(_tipoLbl(ev.tipo))+': '+esc(ev.titulo)+'">'+lbl+esc(ev.titulo)+'</div>';
     });
-    html += '<div class="'+cls+'" data-cal-day="'+d+'"><div class="cal-mes-num">'+d+'</div>'+evHtml+'</div>';
+    html+='<div class="'+cls+'" data-cal-day="'+d+'"><div class="cal-mes-num">'+d+'</div>'+evHtml+'</div>';
   }
-  $id('calGGrid').innerHTML = html;
-  // click en día
+  $id('calGGrid').innerHTML=html;
   $id('calGGrid').querySelectorAll('.cal-mes-dia[data-cal-day]').forEach(function(el){
-    el.addEventListener('click', function(){
-      _calG.day = parseInt(el.getAttribute('data-cal-day'),10);
-      _calG.view = 'day';
-      _actualizarViewBtns();
-      renderCalGlobal();
-    });
-  });
-}
-
-function renderCalGlobalSemana(){
-  $id('calGTitulo').textContent = _calGTituloStr();
-  var lunes = new Date(_calG.year, _calG.month, _calG.day);
-  lunes.setDate(lunes.getDate() - _diaSemana(lunes));
-  var html = '<div class="cal-semana">';
-  for(var i=0;i<7;i++){
-    var d = new Date(lunes); d.setDate(d.getDate()+i);
-    var ds = _fmtDate(d);
-    var cls = _esHoy(d.getFullYear(),d.getMonth(),d.getDate())?'cal-semana-dia hoy':'cal-semana-dia';
-    var evs = _evsDelRango(ds, ds);
-    var evHtml = '<div class="cal-semana-dia-cab">'+_DIAS_CORTO[i]+'<br><span class="cal-semana-dia-num">'+d.getDate()+'</span></div>';
-    evs.forEach(function(ev){
-      var tipo = ev.tipo==='asignacion'?'asig':(ev.tipo==='vacaciones'?'vac':'ev');
-      evHtml += '<div class="cal-mes-ev '+ev.tipo+'" title="'+esc(ev.titulo)+'">'+esc(ev.titulo)+'</div>';
-    });
-    html += '<div class="'+cls+'" data-cal-week="'+ds+'">'+evHtml+'</div>';
-  }
-  html += '</div>';
-  $id('calGGrid').innerHTML = html;
-  $id('calGGrid').querySelectorAll('[data-cal-week]').forEach(function(el){
-    el.addEventListener('click', function(){
-      var parts = el.getAttribute('data-cal-week').split('-');
-      _calG.year=parseInt(parts[0]); _calG.month=parseInt(parts[1])-1; _calG.day=parseInt(parts[2]);
+    el.addEventListener('click',function(){
+      _calG.day=parseInt(el.getAttribute('data-cal-day'),10);
       _calG.view='day'; _actualizarViewBtns(); renderCalGlobal();
     });
   });
 }
-
-function renderCalGlobalDia(){
-  $id('calGTitulo').textContent = _calGTituloStr();
-  var ds = _fmtDate(new Date(_calG.year, _calG.month, _calG.day));
-  var evs = _evsDelRango(ds, ds);
-  var html = '<div class="cal-dia-header">'+_DIAS_CORTO[_diaSemana(new Date(_calG.year,_calG.month,_calG.day))]+', '+_calG.day+' de '+_MESES[_calG.month]+'</div>';
-  if(!evs.length){
-    html += '<div style="text-align:center;color:var(--sub);padding:30px;font-size:14px">Sin eventos este día.<br>Pulsa <b>+</b> para añadir uno.</div>';
+function renderCalGlobalSemana(){
+  $id('calGTitulo').textContent=_calGTituloStr();
+  var lunes=new Date(_calG.year,_calG.month,_calG.day);
+  lunes.setDate(lunes.getDate()-_diaSemana(lunes));
+  var html='<div class="cal-semana">';
+  for(var i=0;i<7;i++){
+    var d=new Date(lunes); d.setDate(d.getDate()+i);
+    var ds=_fmtDate(d);
+    var cls=_esHoy(d.getFullYear(),d.getMonth(),d.getDate())?'cal-semana-dia hoy':'cal-semana-dia';
+    var evs=_evsDelRango(ds,ds);
+    var evHtml='<div class="cal-semana-dia-cab">'+_DIAS_CORTO[i]+'<br><span class="cal-semana-dia-num">'+d.getDate()+'</span></div>';
+    evs.forEach(function(ev){
+      evHtml+='<div class="cal-mes-ev '+_evTipoClass(ev.tipo)+'" title="'+esc(ev.titulo)+'">'+esc(ev.titulo)+'</div>';
+    });
+    html+='<div class="'+cls+'" data-cal-week="'+ds+'">'+evHtml+'</div>';
   }
-  evs.forEach(function(ev){
-    var tipoLbl = ev.tipo==='asignacion'?'Asignación':(ev.tipo==='vacaciones'?'Vacaciones':'Evento');
-    var tipoCls = ev.tipo==='asignacion'?'asig':(ev.tipo==='vacaciones'?'vac':'ev');
-    var tipoBadge = ev.tipo==='asignacion'?'asig':(ev.tipo==='vacaciones'?'vac':'ev');
-    var obraTxt = '';
-    if(ev.obraId){
-      for(var i=0;i<app.obras.length;i++){
-        if(app.obras[i].id===ev.obraId){ obraTxt='Obra: '+esc(app.obras[i].lcl||app.obras[i].id); break; }
-      }
-    }
-    var fechTxt = ev.fechaFin && ev.fechaFin!==ev.fechaInicio ? ev.fechaInicio+' → '+ev.fechaFin : ev.fechaInicio;
-    html += '<div class="cal-dia-evento '+tipoCls+'">'
-      + '<button class="cal-dia-ev-borrar" data-bcal="'+ev.id+'" title="Eliminar">✕</button>'
-      + '<div class="cal-dia-ev-tipo '+tipoBadge+'">'+tipoLbl+'</div>'
-      + '<div class="cal-dia-ev-titulo">'+esc(ev.titulo)+'</div>'
-      + '<div class="cal-dia-ev-meta">'+fechTxt+(obraTxt?' · '+obraTxt:'')+'</div>'
-      + (ev.descripcion?'<div class="cal-dia-ev-meta">'+esc(ev.descripcion)+'</div>':'')
-      + '</div>';
+  html+='</div>';
+  $id('calGGrid').innerHTML=html;
+  $id('calGGrid').querySelectorAll('[data-cal-week]').forEach(function(el){
+    el.addEventListener('click',function(){
+      var p=el.getAttribute('data-cal-week').split('-');
+      _calG.year=parseInt(p[0]);_calG.month=parseInt(p[1])-1;_calG.day=parseInt(p[2]);
+      _calG.view='day';_actualizarViewBtns();renderCalGlobal();
+    });
   });
-  $id('calGGrid').innerHTML = html;
+}
+function renderCalGlobalDia(){
+  $id('calGTitulo').textContent=_calGTituloStr();
+  var ds=_fmtDate(new Date(_calG.year,_calG.month,_calG.day));
+  var evs=_evsDelRango(ds,ds);
+  var html='<div class="cal-dia-header">'+_DIAS_CORTO[_diaSemana(new Date(_calG.year,_calG.month,_calG.day))]+', '+_calG.day+' de '+_MESES[_calG.month]+'</div>';
+  if(!evs.length) html+='<div style="text-align:center;color:var(--sub);padding:30px;font-size:14px">Sin eventos este día.<br>Pulsa <b>+</b> para añadir uno.</div>';
+  evs.forEach(function(ev){
+    var obraTxt=ev.obraId?'Obra: '+esc(_nombreObra(ev.obraId)):'';
+    var fechTxt=ev.fechaFin&&ev.fechaFin!==ev.fechaInicio?ev.fechaInicio+' → '+ev.fechaFin:ev.fechaInicio;
+    html+='<div class="cal-dia-evento '+_tipoCls(ev)+'">'
+      +'<button class="cal-dia-ev-borrar" data-bcal="'+ev.id+'" title="Eliminar">✕</button>'
+      +'<div class="cal-dia-ev-tipo '+_tipoCls(ev)+'">'+_tipoLbl(ev.tipo)+'</div>'
+      +'<div class="cal-dia-ev-titulo">'+esc(ev.titulo)+'</div>'
+      +'<div class="cal-dia-ev-meta">'+fechTxt+(obraTxt?' · '+obraTxt:'')+'</div>'
+      +(ev.descripcion?'<div class="cal-dia-ev-meta">'+esc(ev.descripcion)+'</div>':'')
+      +'</div>';
+  });
+  $id('calGGrid').innerHTML=html;
   $id('calGGrid').querySelectorAll('[data-bcal]').forEach(function(btn){
-    btn.addEventListener('click', function(e){
+    btn.addEventListener('click',function(e){
       e.stopPropagation();
-      if(!confirm('¿Eliminar este evento?')) return;
-      var id = btn.getAttribute('data-bcal');
-      _calG.eventos = _calG.eventos.filter(function(ev){ return ev.id!==id; });
-      guardarEventosCal().then(function(){ renderCalGlobal(); toast('Evento eliminado'); });
+      if(!confirm('¿Eliminar este evento?'))return;
+      _calG.eventos=_calG.eventos.filter(function(ev){return ev.id!==btn.getAttribute('data-bcal');});
+      guardarEventosCal().then(function(){renderCalGlobal();toast('Evento eliminado');});
+    });
+  });
+}
+function _actualizarViewBtns(){
+  $id('calGViewBtns').querySelectorAll('button').forEach(function(b){
+    b.classList.toggle('activo',b.getAttribute('data-view')===_calG.view);
+  });
+}
+
+/* ---------------- Asignaciones ---------------- */
+function _trabajadoresUnicos(){
+  var map={};
+  _calG.eventos.forEach(function(ev){
+    if(ev.tipo==='asignacion'&&ev.titulo){
+      var k=ev.titulo.toLowerCase();
+      if(!map[k]) map[k]={nombre:ev.titulo,asignaciones:[]};
+      map[k].asignaciones.push(ev);
+    }
+  });
+  return Object.values(map).sort(function(a,b){return a.nombre<b.nombre?-1:1;});
+}
+function renderAsignaciones(){
+  var trab=_trabajadoresUnicos();
+  var el=$id('listaAsignaciones');
+  if(!trab.length){
+    el.innerHTML='<div style="text-align:center;color:var(--sub);padding:30px;font-size:14px">Sin asignaciones todavía.<br>Pulsa <b>+</b> y selecciona "Asignación" para asignar un trabajador a una obra.</div>';
+    return;
+  }
+  var hoy=_fmtDate(new Date());
+  var html='';
+  trab.forEach(function(t){
+    var activas=t.asignaciones.filter(function(ev){return ev.fechaFin>=hoy;});
+    var vistas=t.asignaciones.filter(function(ev){return ev.fechaFin<hoy;});
+    html+='<div class="asig-card"><div class="asig-nombre">👷 '+esc(t.nombre)+'</div>';
+    if(activas.length){
+      activas.forEach(function(ev){
+        var ob=ev.obraId?_nombreObra(ev.obraId):'(sin obra)';
+        var fech=ev.fechaInicio===ev.fechaFin?ev.fechaInicio:ev.fechaInicio+' → '+ev.fechaFin;
+        html+='<div class="asig-obra">📌 '+esc(ob)+'</div><div class="asig-fechas">'+fech+'</div>';
+      });
+    } else {
+      html+='<div class="asig-vacio">Sin asignación activa</div>';
+    }
+    html+='</div>';
+  });
+  el.innerHTML=html;
+}
+
+/* ---------------- Permisos y Descargos ---------------- */
+function _permisosYDescargos(filtro){
+  return _calG.eventos.filter(function(ev){
+    if(ev.tipo!=='vacaciones'&&ev.tipo!=='descargo'&&ev.tipo!=='permiso') return false;
+    if(filtro && ev.tipo!==filtro) return false;
+    return true;
+  }).sort(function(a,b){return a.fechaInicio>b.fechaInicio?-1:1;});
+}
+function renderPermisos(){
+  var filtro=$id('filtroPD')?$id('filtroPD').value:'';
+  var lista=_permisosYDescargos(filtro);
+  var el=$id('listaPermisos');
+  if(!lista.length){
+    el.innerHTML='<div style="text-align:center;color:var(--sub);padding:30px;font-size:14px">Sin permisos ni descargos registrados.</div>';
+    return;
+  }
+  var html='';
+  lista.forEach(function(ev){
+    var fech=ev.fechaFin&&ev.fechaFin!==ev.fechaInicio?ev.fechaInicio+' → '+ev.fechaFin:ev.fechaInicio;
+    html+='<div class="pd-item">'
+      +'<span class="pd-tipo '+ev.tipo+'">'+_tipoLbl(ev.tipo)+'</span>'
+      +'<div class="pd-info"><div class="pd-nombre">'+esc(ev.titulo)+'</div><div class="pd-fechas">'+fech+(ev.descripcion?' · '+esc(ev.descripcion):'')+'</div></div>'
+      +'<button class="pd-borrar" data-bcal="'+ev.id+'" title="Eliminar">✕</button>'
+      +'</div>';
+  });
+  el.innerHTML=html;
+  el.querySelectorAll('[data-bcal]').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      if(!confirm('¿Eliminar?'))return;
+      _calG.eventos=_calG.eventos.filter(function(ev){return ev.id!==btn.getAttribute('data-bcal');});
+      guardarEventosCal().then(function(){renderPermisos();toast('Eliminado');});
     });
   });
 }
 
-function _actualizarViewBtns(){
-  $id('calGViewBtns').querySelectorAll('button').forEach(function(b){
-    b.classList.toggle('activo', b.getAttribute('data-view')===_calG.view);
-  });
-}
-
-function abrirFormEvento(fechaSugerida){
-  var ov = $id('overlay');
-  var opts = '<option value="asignacion">Asignación a obra</option><option value="vacaciones">Vacaciones</option><option value="evento">Evento</option>';
-  var obrasOpts = '<option value="">— ninguna —</option>';
-  app.obras.forEach(function(o){ obrasOpts += '<option value="'+esc(o.id)+'">'+esc(o.lcl||o.id)+' — '+esc(o.municipio||'')+'</option>'; });
-  var hoy = fechaSugerida || _fmtDate(new Date(_calG.year, _calG.month, _calG.day));
-  ov.innerHTML = '<div class="overlay" style="position:static"><div class="caja ev-form">'
-    + '<h3> Nuevo evento</h3>'
-    + '<label>Tipo</label><select id="evTipo">'+opts+'</select>'
-    + '<label>Título / Trabajador</label><input id="evTitulo" placeholder="Nombre del trabajador...">'
-    + '<label>Obra (opcional)</label><select id="evObra">'+obrasOpts+'</select>'
-    + '<label>Fecha inicio</label><input type="date" id="evFechaInicio" value="'+hoy+'">'
-    + '<label>Fecha fin</label><input type="date" id="evFechaFin" value="'+hoy+'">'
-    + '<label>Descripción</label><textarea id="evDesc" rows="2" placeholder="Notas..."></textarea>'
-    + '<div class="fila" style="margin-top:14px"><button class="boton gris" id="evCancelar">Cancelar</button><button class="boton" id="evGuardar">Guardar</button></div>'
-    + '</div></div>';
+/* ---------------- Formulario evento ---------------- */
+function abrirFormEvento(){
+  var ov=$id('overlay');
+  var opts='<option value="asignacion">👷 Asignación a obra</option>'
+    +'<option value="vacaciones">🏖 Vacaciones</option>'
+    +'<option value="descargo">📋 Descargo</option>'
+    +'<option value="permiso">📝 Permiso</option>'
+    +'<option value="evento">📌 Evento</option>';
+  var obrasOpts='<option value="">— ninguna —</option>';
+  app.obras.forEach(function(o){obrasOpts+='<option value="'+esc(o.id)+'">'+esc(o.lcl||o.id)+' — '+esc(o.municipio||'')+'</option>';});
+  var hoy=_fmtDate(new Date(_calG.year,_calG.month,_calG.day));
+  ov.innerHTML='<div class="overlay" style="position:static"><div class="caja ev-form">'
+    +'<h3>Nuevo evento</h3>'
+    +'<label>Tipo</label><select id="evTipo">'+opts+'</select>'
+    +'<label id="lblTrab">Trabajador</label><input id="evTitulo" placeholder="Nombre del trabajador...">'
+    +'<div id="evObraWrap"><label>Obra</label><select id="evObra">'+obrasOpts+'</select></div>'
+    +'<label>Fecha inicio</label><input type="date" id="evFechaInicio" value="'+hoy+'">'
+    +'<label>Fecha fin</label><input type="date" id="evFechaFin" value="'+hoy+'">'
+    +'<label>Descripción</label><textarea id="evDesc" rows="2" placeholder="Notas..."></textarea>'
+    +'<div class="fila" style="margin-top:14px"><button class="boton gris" id="evCancelar">Cancelar</button><button class="boton" id="evGuardar">Guardar</button></div>'
+    +'</div></div>';
   ov.classList.remove('hidden');
-  $id('evTipo').addEventListener('change', function(){
-    var v = this.value;
-    $id('evObra').closest('div').style.display = v==='asignacion'?'block':'none';
-  });
-  if(_calG.view==='day') $id('evObra').closest('div').style.display='none';
-  $id('evCancelar').addEventListener('click', function(){ ov.classList.add('hidden'); });
-  $id('evGuardar').addEventListener('click', function(){
-    var titulo = ($id('evTitulo').value||'').trim();
-    if(!titulo){ toast('Escribe un título'); return; }
-    var ev = {
-      id: uid(),
-      tipo: $id('evTipo').value,
-      titulo: titulo,
-      obraId: $id('evObra').value||'',
-      fechaInicio: $id('evFechaInicio').value,
-      fechaFin: $id('evFechaFin').value || $id('evFechaInicio').value,
-      descripcion: ($id('evDesc').value||'').trim()
+  function _toggleObra(){
+    var v=$id('evTipo').value;
+    $id('evObraWrap').style.display=v==='asignacion'?'block':'none';
+  }
+  $id('evTipo').addEventListener('change',_toggleObra);
+  _toggleObra();
+  $id('evCancelar').addEventListener('click',function(){ov.classList.add('hidden');});
+  $id('evGuardar').addEventListener('click',function(){
+    var titulo=($id('evTitulo').value||'').trim();
+    if(!titulo){toast('Escribe un nombre');return;}
+    var ev={
+      id:uid(),tipo:$id('evTipo').value,titulo:titulo,
+      obraId:$id('evObra').value||'',
+      fechaInicio:$id('evFechaInicio').value,
+      fechaFin:$id('evFechaFin').value||$id('evFechaInicio').value,
+      descripcion:($id('evDesc').value||'').trim()
     };
     _calG.eventos.push(ev);
-    guardarEventosCal().then(function(){ ov.classList.add('hidden'); renderCalGlobal(); toast('Evento guardado'); });
+    guardarEventosCal().then(function(){
+      ov.classList.add('hidden');
+      renderCalSection();
+      toast(_tipoLbl(ev.tipo)+' guardado');
+    });
   });
 }
 
 function renderCalGlobalInit(){
-  _calG.year = new Date().getFullYear();
-  _calG.month = new Date().getMonth();
-  _calG.day = new Date().getDate();
-  _calG.view = 'month';
+  _calG.year=new Date().getFullYear();
+  _calG.month=new Date().getMonth();
+  _calG.day=new Date().getDate();
+  _calG.view='month';
+  _calG.section='calendario';
 }
 
 /* ---------------- Exportación: ZIP (xlsx + pdf + fotos) ---------------- */
@@ -1467,25 +1543,32 @@ async function iniciar(){
   await cargarEventosCal();
   renderCalGlobalInit();
   $id('btnCalendario').addEventListener('click', function(){ abrirCalendario(); });
+  $id('calSidebar').addEventListener('click', function(e){
+    var item=e.target.closest('[data-section]');
+    if(!item)return;
+    _calG.section=item.getAttribute('data-section');
+    renderCalSection();
+  });
   $id('calGPrev').addEventListener('click', function(){
-    if(_calG.view==='month'){ _calG.month--; if(_calG.month<0){_calG.month=11;_calG.year--;} }
-    else if(_calG.view==='week'){ var d=new Date(_calG.year,_calG.month,_calG.day); d.setDate(d.getDate()-7); _calG.year=d.getFullYear(); _calG.month=d.getMonth(); _calG.day=d.getDate(); }
-    else { var d2=new Date(_calG.year,_calG.month,_calG.day); d2.setDate(d2.getDate()-1); _calG.year=d2.getFullYear(); _calG.month=d2.getMonth(); _calG.day=d2.getDate(); }
+    if(_calG.view==='month'){_calG.month--;if(_calG.month<0){_calG.month=11;_calG.year--;}}
+    else if(_calG.view==='week'){var d=new Date(_calG.year,_calG.month,_calG.day);d.setDate(d.getDate()-7);_calG.year=d.getFullYear();_calG.month=d.getMonth();_calG.day=d.getDate();}
+    else{var d2=new Date(_calG.year,_calG.month,_calG.day);d2.setDate(d2.getDate()-1);_calG.year=d2.getFullYear();_calG.month=d2.getMonth();_calG.day=d2.getDate();}
     renderCalGlobal();
   });
   $id('calGNext').addEventListener('click', function(){
-    if(_calG.view==='month'){ _calG.month++; if(_calG.month>11){_calG.month=0;_calG.year++;} }
-    else if(_calG.view==='week'){ var d=new Date(_calG.year,_calG.month,_calG.day); d.setDate(d.getDate()+7); _calG.year=d.getFullYear(); _calG.month=d.getMonth(); _calG.day=d.getDate(); }
-    else { var d2=new Date(_calG.year,_calG.month,_calG.day); d2.setDate(d2.getDate()+1); _calG.year=d2.getFullYear(); _calG.month=d2.getMonth(); _calG.day=d2.getDate(); }
+    if(_calG.view==='month'){_calG.month++;if(_calG.month>11){_calG.month=0;_calG.year++;}}
+    else if(_calG.view==='week'){var d=new Date(_calG.year,_calG.month,_calG.day);d.setDate(d.getDate()+7);_calG.year=d.getFullYear();_calG.month=d.getMonth();_calG.day=d.getDate();}
+    else{var d2=new Date(_calG.year,_calG.month,_calG.day);d2.setDate(d2.getDate()+1);_calG.year=d2.getFullYear();_calG.month=d2.getMonth();_calG.day=d2.getDate();}
     renderCalGlobal();
   });
   $id('calGViewBtns').addEventListener('click', function(e){
-    var b = e.target.closest('[data-view]'); if(!b) return;
-    _calG.view = b.getAttribute('data-view');
+    var b=e.target.closest('[data-view]');if(!b)return;
+    _calG.view=b.getAttribute('data-view');
     _actualizarViewBtns();
     renderCalGlobal();
   });
   $id('btnAddEvento').addEventListener('click', function(){ abrirFormEvento(); });
+  $id('filtroPD').addEventListener('change', function(){ renderPermisos(); });
 
   // fotos
   $id('btnFotoGeneral').addEventListener('click', function(){ pedirFoto('general', null); });

@@ -1,7 +1,7 @@
 /* Service Worker del Gestor de Obras MT/BT.
    Cachea la app (caché de todo menos de la API de datos) para que
    funcione sin conexión. Los datos van a Supabase/IndexedDB, no se cachean. */
-const CACHE = 'gestor-obras-v6';
+const CACHE = 'gestor-obras-v7';
 const ASSETS = [
   './',
   './index.html',

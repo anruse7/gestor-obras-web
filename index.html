@@ -184,11 +184,28 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
 .cal-ev.otro{background:#f3f4f6;color:#374151;}
 
 /* ---------- calendario global ---------- */
-.vista-cal{padding:0 12px 80px;}
-.cal-global-header{display:flex;align-items:center;gap:8px;padding:10px 0 6px;flex-wrap:wrap;}
-.cal-global-header .cal-titulo{flex:1;text-align:center;font-size:17px;font-weight:700;color:var(--azul);}
-.cal-nav{background:none;border:1px solid var(--borde);border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;}
-.cal-nav:active{background:var(--azulclaro);}
+.vista-cal{display:flex;height:calc(100vh - 56px);overflow:hidden;}
+.cal-sidebar{width:180px;background:#1e293b;color:#e2e8f0;display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;}
+.cal-nav-item{padding:14px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:10px;border-left:3px solid transparent;transition:background .15s;}
+.cal-nav-item:hover{background:rgba(255,255,255,.08);}
+.cal-nav-item.activo{background:rgba(255,255,255,.12);border-left-color:var(--azul2);color:#fff;font-weight:600;}
+.cal-nav-item .icon{font-size:16px;width:22px;text-align:center;}
+.cal-sidebar-sep{height:1px;background:rgba(255,255,255,.1);margin:4px 12px;}
+.cal-content{flex:1;overflow-y:auto;padding:12px 14px 80px;}
+.cal-section{display:none;}
+.cal-section.activo{display:block;}
+@media(max-width:640px){
+  .cal-sidebar{width:52px;}
+  .cal-nav-item{padding:14px 0;justify-content:center;font-size:0;}
+  .cal-nav-item .icon{font-size:18px;width:auto;}
+  .cal-nav-item .nav-label{display:none;}
+}
+
+/* header de sección */
+.cal-sec-header{display:flex;align-items:center;gap:8px;padding:4px 0 10px;flex-wrap:wrap;}
+.cal-sec-header .cal-titulo{flex:1;font-size:17px;font-weight:700;color:var(--azul);}
+.cal-nav-btn{background:none;border:1px solid var(--borde);border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;}
+.cal-nav-btn:active{background:var(--azulclaro);}
 .cal-view-btns{display:flex;gap:4px;width:100%;}
 .cal-view-btns button{flex:1;padding:6px;border:1px solid var(--borde);border-radius:6px;background:#fff;font-size:12px;cursor:pointer;}
 .cal-view-btns button.activo{background:var(--azul2);color:#fff;border-color:var(--azul2);}
@@ -196,8 +213,9 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
 .cal-leyenda span::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle;}
 .cal-leyenda .l-asig::before{background:#3b82f6;}
 .cal-leyenda .l-vac::before{background:#22c55e;}
+.cal-leyenda .l-desc::before{background:#a855f7;}
+.cal-leyenda .l-per::before{background:#f97316;}
 .cal-leyenda .l-ev::before{background:#f59e0b;}
-.cal-leyenda .l-obra::before{background:#8b5cf6;}
 
 /* mes */
 .cal-mes-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
@@ -211,8 +229,9 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
 .cal-mes-ev{font-size:9px;padding:1px 4px;border-radius:3px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4;}
 .cal-mes-ev.asignacion{background:#dbeafe;color:#1e40af;}
 .cal-mes-ev.vacaciones{background:#dcfce7;color:#166534;}
+.cal-mes-ev.descargo{background:#f3e8ff;color:#6b21a8;}
+.cal-mes-ev.permiso{background:#ffedd5;color:#9a3412;}
 .cal-mes-ev.evento{background:#fef3c7;color:#92400e;}
-.cal-mes-ev.obra{background:#ede9fe;color:#5b21b6;}
 
 /* semana */
 .cal-semana{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;padding-top:4px;}
@@ -227,14 +246,39 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
 .cal-dia-evento{background:#fff;border:1px solid var(--borde);border-radius:8px;padding:10px;margin-bottom:8px;border-left:4px solid var(--borde);}
 .cal-dia-evento.asig{border-left-color:#3b82f6;}
 .cal-dia-evento.vac{border-left-color:#22c55e;}
+.cal-dia-evento.desc{border-left-color:#a855f7;}
+.cal-dia-evento.perm{border-left-color:#f97316;}
 .cal-dia-evento.ev{border-left-color:#f59e0b;}
 .cal-dia-ev-tipo{font-size:10px;padding:1px 6px;border-radius:8px;font-weight:600;display:inline-block;margin-bottom:4px;}
 .cal-dia-ev-tipo.asig{background:#dbeafe;color:#1e40af;}
 .cal-dia-ev-tipo.vac{background:#dcfce7;color:#166534;}
+.cal-dia-ev-tipo.desc{background:#f3e8ff;color:#6b21a8;}
+.cal-dia-ev-tipo.perm{background:#ffedd5;color:#9a3412;}
 .cal-dia-ev-tipo.ev{background:#fef3c7;color:#92400e;}
 .cal-dia-ev-titulo{font-size:14px;font-weight:600;}
 .cal-dia-ev-meta{font-size:12px;color:var(--sub);margin-top:2px;}
 .cal-dia-ev-borrar{float:right;background:none;border:none;color:var(--rojo);cursor:pointer;font-size:16px;}
+
+/* asignaciones */
+.asig-card{background:#fff;border:1px solid var(--borde);border-radius:10px;padding:12px;margin-bottom:10px;}
+.asig-card .asig-nombre{font-size:15px;font-weight:700;}
+.asig-card .asig-obra{font-size:13px;color:var(--azul2);margin-top:3px;}
+.asig-card .asig-fechas{font-size:11px;color:var(--sub);margin-top:2px;}
+.asig-card .asig-vacio{font-size:12px;color:#9ca3af;font-style:italic;margin-top:3px;}
+.asig-card .asig-btn{display:inline-block;margin-top:6px;font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--borde);background:#fff;cursor:pointer;}
+.asig-card .asig-btn:active{background:var(--gris);}
+.asig-card .asig-btn.rojo{color:var(--rojo);border-color:var(--rojo);}
+
+/* permisos/descargos */
+.pd-item{background:#fff;border:1px solid var(--borde);border-radius:8px;padding:10px;margin-bottom:8px;display:flex;align-items:center;gap:10px;}
+.pd-tipo{font-size:10px;padding:2px 8px;border-radius:8px;font-weight:600;white-space:nowrap;}
+.pd-tipo.vacaciones{background:#dcfce7;color:#166534;}
+.pd-tipo.descargo{background:#f3e8ff;color:#6b21a8;}
+.pd-tipo.permiso{background:#ffedd5;color:#9a3412;}
+.pd-info{flex:1;min-width:0;}
+.pd-info .pd-nombre{font-size:14px;font-weight:600;}
+.pd-info .pd-fechas{font-size:11px;color:var(--sub);}
+.pd-borrar{background:none;border:none;color:var(--rojo);cursor:pointer;font-size:16px;padding:4px;}
 
 /* FAB */
 .fab{position:fixed;bottom:20px;right:20px;width:52px;height:52px;border-radius:50%;background:var(--azul2);color:#fff;border:none;font-size:26px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.25);z-index:50;display:flex;align-items:center;justify-content:center;}
@@ -441,24 +485,57 @@ label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px;}
 
 <!-- ================= VISTA CALENDARIO GLOBAL ================= -->
 <div id="vistaCalendario" class="hidden vista-cal">
-  <div class="cal-global-header">
-    <button class="cal-nav" id="calGPrev">◀</button>
-    <span class="cal-titulo" id="calGTitulo"></span>
-    <button class="cal-nav" id="calGNext">▶</button>
-    <div class="cal-view-btns" id="calGViewBtns">
-      <button data-view="month" class="activo">Mes</button>
-      <button data-view="week">Semana</button>
-      <button data-view="day">Día</button>
+  <div class="cal-sidebar" id="calSidebar">
+    <div class="cal-nav-item activo" data-section="calendario"><span class="icon">📅</span><span class="nav-label">Calendario</span></div>
+    <div class="cal-sidebar-sep"></div>
+    <div class="cal-nav-item" data-section="asignaciones"><span class="icon">👷</span><span class="nav-label">Asignaciones</span></div>
+    <div class="cal-sidebar-sep"></div>
+    <div class="cal-nav-item" data-section="permisos"><span class="icon">📋</span><span class="nav-label">Permisos</span></div>
+  </div>
+  <div class="cal-content">
+    <!-- SECCIÓN CALENDARIO -->
+    <div class="cal-section activo" id="secCalendario">
+      <div class="cal-sec-header">
+        <button class="cal-nav-btn" id="calGPrev">◀</button>
+        <span class="cal-titulo" id="calGTitulo"></span>
+        <button class="cal-nav-btn" id="calGNext">▶</button>
+        <div class="cal-view-btns" id="calGViewBtns">
+          <button data-view="month" class="activo">Mes</button>
+          <button data-view="week">Semana</button>
+          <button data-view="day">Día</button>
+        </div>
+      </div>
+      <div class="cal-leyenda">
+        <span class="l-asig">Asignación</span>
+        <span class="l-vac">Vacaciones</span>
+        <span class="l-desc">Descargo</span>
+        <span class="l-per">Permiso</span>
+        <span class="l-ev">Evento</span>
+      </div>
+      <div id="calGGrid"></div>
     </div>
+
+    <!-- SECCIÓN ASIGNACIONES -->
+    <div class="cal-section" id="secAsignaciones">
+      <div class="cal-sec-header">
+        <span class="cal-titulo">Asignaciones de trabajadores</span>
+      </div>
+      <div id="listaAsignaciones"></div>
+    </div>
+
+    <!-- SECCIÓN PERMISOS Y DESCARGOS -->
+    <div class="cal-section" id="secPermisos">
+      <div class="cal-sec-header">
+        <span class="cal-titulo">Permisos y descargos</span>
+      </div>
+      <div class="fila" style="margin-bottom:10px">
+        <select id="filtroPD" style="flex:1;font-size:13px;padding:6px"><option value="">Todos</option><option value="vacaciones">Vacaciones</option><option value="descargo">Descargos</option><option value="permiso">Permisos</option></select>
+      </div>
+      <div id="listaPermisos"></div>
+    </div>
+
+    <button class="fab" id="btnAddEvento" title="Nuevo evento">+</button>
   </div>
-  <div class="cal-leyenda">
-    <span class="l-asig">Asignación</span>
-    <span class="l-vac">Vacaciones</span>
-    <span class="l-ev">Evento</span>
-    <span class="l-obra">Obra</span>
-  </div>
-  <div id="calGGrid"></div>
-  <button class="fab" id="btnAddEvento" title="Nuevo evento">+</button>
 </div>
 
 <!-- modal foto -->
