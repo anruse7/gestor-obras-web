@@ -947,6 +947,25 @@ var _DIAS_CORTO = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 function _evKey(){ return 'calendario'; }
 async function cargarEventosCal(){ _calG.eventos = await STORAGE.get(_evKey()) || []; }
 async function guardarEventosCal(){ await STORAGE.set(_evKey(), _calG.eventos); }
+
+/* Registry de trabajadores (persistente) */
+var _trabajadores=[];
+function _trabKey(){ return 'trabajadores'; }
+async function cargarTrabajadores(){ _trabajadores = await STORAGE.get(_trabKey()) || []; }
+async function guardarTrabajadores(){ await STORAGE.set(_trabKey(), _trabajadores); }
+function registrarTrabajador(nombre){
+  var n=(nombre||'').trim(); if(!n) return false;
+  var nl=n.toLowerCase();
+  for(var i=0;i<_trabajadores.length;i++){ if(_trabajadores[i].nombre.toLowerCase()===nl) return false; }
+  _trabajadores.push({id:uid(),nombre:n});
+  guardarTrabajadores();
+  return true;
+}
+function borrarTrabajador(nombre){
+  var nl=(nombre||'').toLowerCase();
+  _trabajadores=_trabajadores.filter(function(t){return t.nombre.toLowerCase()!==nl;});
+  guardarTrabajadores();
+}
 function _fmtDate(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function _diaSemana(d){ return (d.getDay()+6)%7; }
 function _esHoy(y,m,d){ var h=new Date(); return d===h.getDate()&&m===h.getMonth()&&y===h.getFullYear(); }
@@ -1077,33 +1096,36 @@ function renderCalGlobalDia(){
       +'</div>';
   });
 
-  /* Planificación del día: todos los trabajadores conocidos */
+  /* Planificación del día */
   var todos=_todosTrabajadores();
   var planificados=0;
-  if(todos.length){
-    todos.forEach(function(nombre){
-      if(_asignacionEnFecha(nombre,ds)) planificados++;
-    });
-  }
+  todos.forEach(function(nombre){ if(_asignacionEnFecha(nombre,ds)) planificados++; });
   html+='<div class="cal-dia-plan"><div class="cal-dia-plan-tit"><span>👷 Planificación del día</span><span style="font-size:11px;color:var(--sub);font-weight:400">'+(todos.length?planificados+'/'+todos.length+' asignados':'Sin trabajadores registrados')+'</span></div>';
-  if(todos.length){
-    todos.forEach(function(nombre){
-      var asig=_asignacionEnFecha(nombre,ds);
+
+  if(_trabajadores.length){
+    _trabajadores.forEach(function(t){
+      var asig=_asignacionEnFecha(t.nombre,ds);
       var obraTxt=asig?esc(_nombreObra(asig.obraId||'')):'';
       var cls=asig?'cal-worker asig':'cal-worker sin-asig';
       html+='<div class="'+cls+'">'
-        +'<span class="cal-worker-nom">👷 '+esc(nombre)+'</span>'
-        +(obraTxt?'<span class="cal-worker-obra">'+obraTxt+'</span>':'')
-        +'<button class="cal-worker-btn'+(asig?' asig-btn':'')+'" data-trab="'+esc(nombre)+'" data-fecha="'+ds+'">'
+        +'<span class="cal-worker-nom">👷 '+esc(t.nombre)+'</span>'
+        +(obraTxt?'<span class="cal-worker-obra">'+obraTxt+'</span>':'<span class="cal-worker-obra" style="color:#9ca3af">Libre</span>')
+        +'<button class="cal-worker-btn'+(asig?' asig-btn':'')+'" data-trab="'+esc(t.nombre)+'" data-fecha="'+ds+'">'
         +(asig?'Desasignar':'Asignar')+'</button>'
         +'</div>';
     });
-    /* refrescar contador */
   }
-  html+='<div class="cal-add-worker"><input id="calNuevoTrab" placeholder="Nuevo trabajador..."><button id="calAddTrabBtn">＋ Añadir</button></div>';
+
+  html+='<div class="cal-add-row"><input id="calNuevoTrab" placeholder="Nuevo trabajador..." list="dlTrabajadores"><datalist id="dlTrabajadores"></datalist><button id="calAddTrabBtn">＋</button></div>';
   html+='</div>';
 
   $id('calGGrid').innerHTML=html;
+
+  /* popular datalist con trabajadores existentes */
+  var dl=$id('dlTrabajadores');
+  if(dl){
+    dl.innerHTML=_trabajadores.map(function(t){return '<option value="'+esc(t.nombre)+'">';}).join('');
+  }
 
   /* borrar evento */
   $id('calGGrid').querySelectorAll('[data-bcal]').forEach(function(btn){
@@ -1115,7 +1137,7 @@ function renderCalGlobalDia(){
     });
   });
 
-  /* asignar / desasignar trabajador */
+  /* asignar / desasignar */
   $id('calGGrid').querySelectorAll('.cal-worker-btn[data-trab]').forEach(function(btn){
     btn.addEventListener('click',function(){
       var nombre=btn.getAttribute('data-trab');
@@ -1126,28 +1148,29 @@ function renderCalGlobalDia(){
         _calG.eventos=_calG.eventos.filter(function(ev){return ev.id!==asig.id;});
         guardarEventosCal().then(function(){renderCalGlobalDia();toast(nombre+' desasignado');});
       } else {
-        _evSeleccionado='asignacion';
         _abrirFormAsignacionRapida(nombre,fecha);
       }
     });
   });
 
-  /* añadir nuevo trabajador */
+  /* añadir trabajador */
   var addBtn=$id('calAddTrabBtn');
   if(addBtn) addBtn.addEventListener('click',function(){
     var nom=($id('calNuevoTrab').value||'').trim();
     if(!nom){toast('Escribe un nombre');return;}
-    _evSeleccionado='asignacion';
+    registrarTrabajador(nom);
+    toast(nom+' registrado');
     _abrirFormAsignacionRapida(nom,ds);
   });
 }
 
 function _todosTrabajadores(){
-  var set={};
+  var map={};
+  _trabajadores.forEach(function(t){ map[t.nombre.toLowerCase()]=t.nombre; });
   _calG.eventos.forEach(function(ev){
-    if(ev.titulo) set[ev.titulo.toLowerCase()]=ev.titulo;
+    if(ev.titulo) map[ev.titulo.toLowerCase()]=ev.titulo;
   });
-  return Object.values(set).sort(function(a,b){return a<b?-1:1;});
+  return Object.values(map).sort(function(a,b){return a<b?-1:1;});
 }
 function _asignacionEnFecha(nombre,fecha){
   var nl=nombre.toLowerCase();
@@ -1201,29 +1224,33 @@ function _actualizarViewBtns(){
 }
 
 /* ---------------- Asignaciones ---------------- */
-function _trabajadoresUnicos(){
+function _asignacionesDe(nombre){
+  var nl=nombre.toLowerCase();
+  return _calG.eventos.filter(function(ev){
+    return ev.tipo==='asignacion'&&ev.titulo&&ev.titulo.toLowerCase()===nl;
+  });
+}
+function renderAsignaciones(){
+  var el=$id('listaAsignaciones');
+  var hoy=_fmtDate(new Date());
+  if(!_trabajadores.length&&!_calG.eventos.some(function(e){return e.tipo==='asignacion';})){
+    el.innerHTML='<div style="text-align:center;color:var(--sub);padding:30px;font-size:14px">Sin trabajadores registrados.<br>Ve al <b>Calendario → Día</b> para añadir trabajadores.</div>';
+    return;
+  }
+  /* unir registry + eventos */
   var map={};
+  _trabajadores.forEach(function(t){ map[t.nombre.toLowerCase()]={nombre:t.nombre}; });
   _calG.eventos.forEach(function(ev){
     if(ev.tipo==='asignacion'&&ev.titulo){
       var k=ev.titulo.toLowerCase();
-      if(!map[k]) map[k]={nombre:ev.titulo,asignaciones:[]};
-      map[k].asignaciones.push(ev);
+      if(!map[k]) map[k]={nombre:ev.titulo};
     }
   });
-  return Object.values(map).sort(function(a,b){return a.nombre<b.nombre?-1:1;});
-}
-function renderAsignaciones(){
-  var trab=_trabajadoresUnicos();
-  var el=$id('listaAsignaciones');
-  if(!trab.length){
-    el.innerHTML='<div style="text-align:center;color:var(--sub);padding:30px;font-size:14px">Sin asignaciones todavía.<br>Pulsa <b>+</b> y selecciona "Asignación" para asignar un trabajador a una obra.</div>';
-    return;
-  }
-  var hoy=_fmtDate(new Date());
+  var lista=Object.values(map).sort(function(a,b){return a.nombre<b.nombre?-1:1;});
   var html='';
-  trab.forEach(function(t){
-    var activas=t.asignaciones.filter(function(ev){return ev.fechaFin>=hoy;});
-    var vistas=t.asignaciones.filter(function(ev){return ev.fechaFin<hoy;});
+  lista.forEach(function(t){
+    var asigs=_asignacionesDe(t.nombre);
+    var activas=asigs.filter(function(ev){return ev.fechaFin>=hoy;});
     html+='<div class="asig-card"><div class="asig-nombre">👷 '+esc(t.nombre)+'</div>';
     if(activas.length){
       activas.forEach(function(ev){
@@ -1660,6 +1687,7 @@ async function iniciar(){
 
   // calendario global
   await cargarEventosCal();
+  await cargarTrabajadores();
   renderCalGlobalInit();
   $id('btnCalendario').addEventListener('click', function(){ abrirCalendario(); });
   $id('qcControl').addEventListener('click', function(){ abrirCalendario(); _calG.section='asignaciones'; renderCalSection(); });
