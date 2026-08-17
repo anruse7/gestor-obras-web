@@ -244,13 +244,15 @@ function indiceResumen(o){
 }
 function avisarNube(){
   if(!STORAGE.cloudFail || !window.CONFIG || !window.CONFIG.supabaseUrl) return;
+  if(app._restoring) return;
   var b = $id('setupBanner');
   if(!b || b._avisadoNube) return;
   b._avisadoNube = true;
   b.innerHTML = '⚠ La nube no confirmó el guardado (se reintentó). Tus datos están seguros en este dispositivo; se está <b>recargando para sincronizar</b>…';
   b.classList.remove('hidden');
   actualizarIndicador('setup');
-  // Al recargar la app vuelve a conectar con la nube y sincroniza (los datos ya están en local).
+  // Guardar la posición actual en la URL para restaurarla tras la recarga
+  if(app.obra && app.obra.id) location.hash = 'o='+app.obra.id+'&t='+app.tab;
   setTimeout(function(){ location.reload(); }, 2500);
 }
 async function guardarLista(){ await STORAGE.set('index', app.obras); avisarNube(); }
@@ -1003,6 +1005,22 @@ async function iniciar(){
 
   // Registro de diagnóstico disponible en consola: window.__DIAG
 
+  // Restaurar la posición tras una recarga automática (#o=obraId&t=tab)
+  if(location.hash.indexOf('#o=')===0){
+    var _p = location.hash.slice(1).split('&');
+    var _oid = (_p[0]||'').slice(2);
+    var _tab = (_p[1]||'').slice(2) || 'partidas';
+    if(_oid){
+      app.tab = _tab;
+      app._restoring = true;
+      cargarObra(_oid).then(function(ok){
+        if(ok) abrirDetalle();
+        app._restoring = false;
+      });
+    }
+    history.replaceState(null,'',location.pathname+location.search);
+  }
+
   // eventos globales
   window.addEventListener('online', function(){ app.online=true; actualizarIndicador(STORAGE.backend()==='supabase'?'supabase':'idb'); });
   window.addEventListener('offline', function(){ app.online=false; actualizarIndicador('idb'); });
@@ -1011,12 +1029,14 @@ async function iniciar(){
   $id('btnNuevaObra').addEventListener('click', abrirAlta);
   $id('btnVolver').addEventListener('click', function(){
     app.vista='lista';
+    app.obra=null;
     $id('vistaDetalle').classList.add('hidden');
     $id('vistaAlta').classList.add('hidden');
     $id('vistaLista').classList.remove('hidden');
     $id('btnVolver').classList.add('hidden');
     $id('btnNuevaObra').classList.remove('hidden');
     $id('tituloCab').textContent='Gestor de Obras MT/BT';
+    if(location.hash) history.replaceState(null,'',location.pathname+location.search);
     renderLista();
   });
   $id('listaObras').addEventListener('click', function(e){
